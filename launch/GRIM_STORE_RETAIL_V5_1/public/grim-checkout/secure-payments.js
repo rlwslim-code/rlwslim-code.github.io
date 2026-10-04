@@ -9,7 +9,29 @@
   "use strict";
 
   const byId = id => document.getElementById(id);
+  async function fetchWithTimeout(
+  url,
+  options = {},
+  timeout = 20000
+) {
+  const controller =
+    new AbortController();
 
+  const timer =
+    setTimeout(
+      () => controller.abort(),
+      timeout
+    );
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
   const value = id =>
     String(byId(id)?.value || "").trim();
 
@@ -46,8 +68,8 @@
    * canonical NGN product prices.
    */
   async function getCanonicalProducts() {
-    const response = await fetch(
-      "/api/products",
+    const response = await fetchWithTimeout(
+  "/api/products",
       {
         method: "GET",
         credentials: "include",
@@ -259,8 +281,8 @@
 
 
       const response =
-        await fetch(
-          "/api/payments/initialize",
+  await fetchWithTimeout(
+    "/api/payments/initialize",
           {
             method:
               "POST",
@@ -304,9 +326,11 @@
         );
 
         paymentMessage(
-          result?.error ||
-          "Unable to prepare secure payment. Please try again."
-        );
+  error?.name === "AbortError"
+    ? "Payment preparation timed out. No payment was opened. Please try again."
+    : error?.message ||
+      "Unable to connect to secure payment. Please try again."
+);
 
         return;
       }
