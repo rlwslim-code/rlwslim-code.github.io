@@ -12,7 +12,7 @@ import { OAuth2Client } from "google-auth-library";
 import { installGrimPayments } from "./grim-payments.js";
 import { installGrimControl } from "./grim-control/index.js";
 import { grimSupabase } from "./grim-control/supabase.js";
-
+import { installGrimV6 } from "./grim-v6.js";
 dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -87,6 +87,7 @@ app.use(
  * GRIM Control is installed before the application routes so it can observe
  * signup, login, order, support and payment responses without rewriting them.
  */
+installGrimV6(app, { supabase: grimSupabase });
 installGrimControl(app);
 
 const dataDir =
