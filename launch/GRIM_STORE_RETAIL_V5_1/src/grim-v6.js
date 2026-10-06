@@ -650,7 +650,6 @@ privacy: {
       source:"fallback",escalate:true
     });
   });
-}
 // ============================================================
 // GRIM CUSTOMER SETTINGS — SHOPPING / NOTIFICATIONS / PRIVACY
 // ============================================================
@@ -775,3 +774,4 @@ app.post("/api/settings/privacy", async (req, res) => {
     });
   }
 });
+}
