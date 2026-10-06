@@ -255,67 +255,6 @@ export function installGrimV6(app, { supabase }) {
       res.status(500).json({error:"Unable to resend the code right now."});
     }
   });
-  // Passwordless email-code sign in
-  app.post("/api/auth/email-code/send", async (req, res) => {
-    if (!requireDb(res)) return;
-
-    const email = cleanEmail(req.body?.email);
-
-    if (!emailOK(email)) {
-      return res.status(400).json({
-        error: "Enter a valid email address."
-      });
-    }
-
-    try {
-      const user = await customerByEmail(email);
-
-      // Generic response prevents account/email enumeration.
-      if (!user) {
-        return res.json({
-          ok: true,
-          message: "If that email belongs to a GRIM account, a sign-in code has been sent."
-        });
-      }
-
-      const code = newOtp();
-      const expires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-
-      const { error } = await supabase
-        .from("two_factor_challenges")
-        .insert({
-          customer_id: user.id,
-          code_hash: sha256(code),
-          expires_at: expires,
-          attempts_remaining: 5,
-          request_ip: clean(
-            req.headers["x-forwarded-for"] || req.ip || "",
-            160
-          )
-        });
-
-      if (error) throw error;
-
-      await sendTwoFactorCode(user.email, code);
-
-      req.session.pendingEmailCode = {
-        customerId: user.id,
-        email: user.email,
-        issuedAt: Date.now()
-      };
-
-      return res.json({
-        ok: true,
-        message: "If that email belongs to a GRIM account, a sign-in code has been sent."
-      });
-    } catch (e) {
-      console.error("[GRIM email-code send]", e);
-
-      return res.status(500).json({
-        error: "Unable to send a sign-in code right now."
-      });
-    }
-  });
 
   app.post("/api/auth/email-code/verify", async (req, res) => {
     if (!requireDb(res)) return;
