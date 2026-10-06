@@ -651,3 +651,127 @@ privacy: {
     });
   });
 }
+// ============================================================
+// GRIM CUSTOMER SETTINGS — SHOPPING / NOTIFICATIONS / PRIVACY
+// ============================================================
+
+// Save shopping preferences
+app.post("/api/settings/shopping", async (req, res) => {
+  if (!requireDb(res)) return;
+
+  const session = requireUser(req, res);
+  if (!session) return;
+
+  const preferredColorways = Array.isArray(req.body?.preferredColorways)
+    ? req.body.preferredColorways.slice(0, 20)
+    : [];
+
+  const checkoutPreferences =
+    req.body?.checkoutPreferences &&
+    typeof req.body.checkoutPreferences === "object"
+      ? req.body.checkoutPreferences
+      : {};
+
+  try {
+    const { error } = await supabase
+      .from("customers")
+      .update({
+        preferred_colorways: preferredColorways,
+        checkout_preferences: checkoutPreferences
+      })
+      .eq("email", session.email);
+
+    if (error) throw error;
+
+    return res.json({
+      ok: true,
+      shopping: {
+        preferredColorways,
+        checkoutPreferences
+      }
+    });
+  } catch (e) {
+    console.error("[GRIM shopping settings]", e);
+    return res.status(500).json({
+      error: "Unable to save shopping preferences."
+    });
+  }
+});
+
+
+// Save notification preferences
+app.post("/api/settings/notifications", async (req, res) => {
+  if (!requireDb(res)) return;
+
+  const session = requireUser(req, res);
+  if (!session) return;
+
+  const settings = {
+    notify_orders: req.body?.orders !== false,
+    notify_wallet: req.body?.wallet !== false,
+    notify_drops: req.body?.drops !== false,
+    notify_restocks: req.body?.restocks !== false,
+    notify_promotions: req.body?.promotions === true,
+    notify_house_of_grim: req.body?.houseOfGrim !== false
+  };
+
+  try {
+    const { error } = await supabase
+      .from("customers")
+      .update(settings)
+      .eq("email", session.email);
+
+    if (error) throw error;
+
+    return res.json({
+      ok: true,
+      notifications: {
+        orders: settings.notify_orders,
+        wallet: settings.notify_wallet,
+        drops: settings.notify_drops,
+        restocks: settings.notify_restocks,
+        promotions: settings.notify_promotions,
+        houseOfGrim: settings.notify_house_of_grim
+      }
+    });
+  } catch (e) {
+    console.error("[GRIM notification settings]", e);
+    return res.status(500).json({
+      error: "Unable to save notification preferences."
+    });
+  }
+});
+
+
+// Save privacy / marketing preference
+app.post("/api/settings/privacy", async (req, res) => {
+  if (!requireDb(res)) return;
+
+  const session = requireUser(req, res);
+  if (!session) return;
+
+  const marketingConsent = req.body?.marketingConsent === true;
+
+  try {
+    const { error } = await supabase
+      .from("customers")
+      .update({
+        marketing_consent: marketingConsent
+      })
+      .eq("email", session.email);
+
+    if (error) throw error;
+
+    return res.json({
+      ok: true,
+      privacy: {
+        marketingConsent
+      }
+    });
+  } catch (e) {
+    console.error("[GRIM privacy settings]", e);
+    return res.status(500).json({
+      error: "Unable to save privacy settings."
+    });
+  }
+});
