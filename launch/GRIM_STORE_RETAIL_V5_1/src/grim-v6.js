@@ -305,7 +305,179 @@ return res.json({
       res.status(500).json({error:"Unable to load your GRIM account."});
     }
   });
+    // CUSTOMER SETTINGS
+  app.get("/api/settings", async (req, res) => {
+    if (!requireDb(res)) return;
+    const session = requireUser(req, res);
+    if (!session) return;
 
+    try {
+      const user = await customerByEmail(session.email);
+      if (!user) return res.status(404).json({ error: "Account not found." });
+
+      return res.json({
+        ok: true,
+        profile: {
+          firstName: user.first_name || "",
+          lastName: user.last_name || "",
+          name: user.name || "",
+          email: user.email || "",
+          phone: user.phone || ""
+        },
+        security: {
+          twoFactorEnabled: user.two_factor_enabled === true
+        },
+        appearance: user.theme_preference || "system"
+      });
+    } catch (e) {
+      console.error("[GRIM settings]", e);
+      return res.status(500).json({ error: "Unable to load settings." });
+    }
+  });
+
+  app.post("/api/settings/profile", async (req, res) => {
+    if (!requireDb(res)) return;
+    const session = requireUser(req, res);
+    if (!session) return;
+
+    const firstName = clean(req.body?.firstName, 80);
+    const lastName = clean(req.body?.lastName, 80);
+    const phone = clean(req.body?.phone, 80);
+
+    if (!firstName || !lastName) {
+      return res.status(400).json({ error: "First and last name are required." });
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("customers")
+        .update({
+          first_name: firstName,
+          last_name: lastName,
+          name: `${firstName} ${lastName}`.trim(),
+          phone
+        })
+        .eq("email", session.email)
+        .select("*")
+        .single();
+
+      if (error) throw error;
+
+      req.session.user = sessionUser(data);
+
+      return res.json({
+        ok: true,
+        user: req.session.user
+      });
+    } catch (e) {
+      console.error("[GRIM profile settings]", e);
+      return res.status(500).json({ error: "Unable to update your information." });
+    }
+  });
+
+  app.post("/api/settings/2fa", async (req, res) => {
+    if (!requireDb(res)) return;
+    const session = requireUser(req, res);
+    if (!session) return;
+
+    const enabled = req.body?.enabled === true;
+
+    try {
+      const { error } = await supabase
+        .from("customers")
+        .update({ two_factor_enabled: enabled })
+        .eq("email", session.email);
+
+      if (error) throw error;
+
+      return res.json({
+        ok: true,
+        twoFactorEnabled: enabled
+      });
+    } catch (e) {
+      console.error("[GRIM 2FA setting]", e);
+      return res.status(500).json({ error: "Unable to update 2FA." });
+    }
+  });
+
+  app.post("/api/settings/appearance", async (req, res) => {
+    if (!requireDb(res)) return;
+    const session = requireUser(req, res);
+    if (!session) return;
+
+    const theme = String(req.body?.theme || "").toLowerCase();
+
+    if (!["dark", "light", "system"].includes(theme)) {
+      return res.status(400).json({ error: "Invalid appearance setting." });
+    }
+
+    try {
+      const { error } = await supabase
+        .from("customers")
+        .update({ theme_preference: theme })
+        .eq("email", session.email);
+
+      if (error) throw error;
+
+      return res.json({
+        ok: true,
+        appearance: theme
+      });
+    } catch (e) {
+      console.error("[GRIM appearance setting]", e);
+      return res.status(500).json({ error: "Unable to update appearance." });
+    }
+  });
+
+  app.post("/api/settings/password", async (req, res) => {
+    if (!requireDb(res)) return;
+    const session = requireUser(req, res);
+    if (!session) return;
+
+    const currentPassword = String(req.body?.currentPassword || "");
+    const newPassword = String(req.body?.newPassword || "");
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        error: "New password must be at least 8 characters."
+      });
+    }
+
+    try {
+      const user = await customerByEmail(session.email);
+
+      if (!user?.password_hash) {
+        return res.status(400).json({
+          error: "Password changes are unavailable for this sign-in method."
+        });
+      }
+
+      const valid = await bcrypt.compare(currentPassword, user.password_hash);
+
+      if (!valid) {
+        return res.status(401).json({
+          error: "Current password is incorrect."
+        });
+      }
+
+      const passwordHash = await bcrypt.hash(newPassword, 12);
+
+      const { error } = await supabase
+        .from("customers")
+        .update({ password_hash: passwordHash })
+        .eq("id", user.id);
+
+      if (error) throw error;
+
+      return res.json({
+        ok: true,
+        message: "Password changed successfully."
+      });
+    } catch (e) {
+      console.error("[GRIM password settings]", e);
+      return res.status(500).json({ error: "Unable to change password." });
+    }
+  });
   app.post("/api/wallet/fund/initialize", async (req,res) => {
     if (!requireDb(res)) return;
     const session = requireUser(req,res); if (!session) return;
