@@ -1099,4 +1099,110 @@
   };
 
   loadSettings();
+// ============================================================
+// GRIM SETTINGS — SHOPPING / NOTIFICATIONS / PRIVACY
+// ============================================================
+
+// SHOPPING
+const saveShopping = $("#g6-save-shopping");
+
+if (saveShopping) {
+  saveShopping.onclick = async () => {
+    const status = $("#g6-shopping-status");
+
+    try {
+      if (status) status.textContent = "Saving...";
+
+      const preferredColorways = [
+        ...document.querySelectorAll(
+          '[name="g6-colorway"]:checked'
+        )
+      ].map((el) => el.value);
+
+      const checkoutPreferences = {
+        saveAddress:
+          $("#g6-save-address")?.checked === true,
+
+        rememberSize:
+          $("#g6-remember-size")?.checked === true
+      };
+
+      await api("/api/settings/shopping", {
+        method: "POST",
+        body: JSON.stringify({
+          preferredColorways,
+          checkoutPreferences
+        })
+      });
+
+      if (status) {
+        status.textContent = "Shopping preferences saved.";
+      }
+    } catch (err) {
+      if (status) status.textContent = err.message;
+    }
+  };
+}
+
+
+// NOTIFICATIONS
+const saveNotifications = $("#g6-save-notifications");
+
+if (saveNotifications) {
+  saveNotifications.onclick = async () => {
+    const status = $("#g6-notification-status");
+
+    try {
+      if (status) status.textContent = "Saving...";
+
+      await api("/api/settings/notifications", {
+        method: "POST",
+        body: JSON.stringify({
+          orders: $("#g6-notify-orders")?.checked === true,
+          wallet: $("#g6-notify-wallet")?.checked === true,
+          drops: $("#g6-notify-drops")?.checked === true,
+          restocks: $("#g6-notify-restocks")?.checked === true,
+          promotions:
+            $("#g6-notify-promotions")?.checked === true,
+          houseOfGrim:
+            $("#g6-notify-house")?.checked === true
+        })
+      });
+
+      if (status) {
+        status.textContent = "Notification preferences saved.";
+      }
+    } catch (err) {
+      if (status) status.textContent = err.message;
+    }
+  };
+}
+
+
+// PRIVACY
+const savePrivacy = $("#g6-save-privacy");
+
+if (savePrivacy) {
+  savePrivacy.onclick = async () => {
+    const status = $("#g6-privacy-status");
+
+    try {
+      if (status) status.textContent = "Saving...";
+
+      await api("/api/settings/privacy", {
+        method: "POST",
+        body: JSON.stringify({
+          marketingConsent:
+            $("#g6-marketing-consent")?.checked === true
+        })
+      });
+
+      if (status) {
+        status.textContent = "Privacy preferences saved.";
+      }
+    } catch (err) {
+      if (status) status.textContent = err.message;
+    }
+  };
+}
 })();
