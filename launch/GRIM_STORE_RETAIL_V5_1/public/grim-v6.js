@@ -513,3 +513,590 @@
   loadAccount();
   loadFaq();
 })();
+/* =========================================================
+   GRIM CUSTOMER SETTINGS UI
+   ========================================================= */
+(() => {
+  const api = async (url, options = {}) => {
+    const response = await fetch(url, {
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {})
+      },
+      ...options
+    });
+
+    let data = {};
+    try {
+      data = await response.json();
+    } catch {}
+
+    if (!response.ok) {
+      throw new Error(data.error || "Something went wrong.");
+    }
+
+    return data;
+  };
+
+  const esc = (value = "") =>
+    String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
+
+  function applyTheme(theme) {
+    document.documentElement.dataset.grimTheme = theme;
+
+    if (theme === "system") {
+      document.documentElement.style.colorScheme = "light dark";
+    } else {
+      document.documentElement.style.colorScheme = theme;
+    }
+
+    localStorage.setItem("grim-theme", theme);
+  }
+
+  const savedTheme = localStorage.getItem("grim-theme");
+  if (savedTheme) applyTheme(savedTheme);
+
+  const style = document.createElement("style");
+  style.textContent = `
+    .g6-settings-btn{
+      position:fixed;
+      right:22px;
+      bottom:94px;
+      z-index:9997;
+      border:1px solid rgba(255,255,255,.18);
+      background:#0a0a0a;
+      color:#fff;
+      border-radius:999px;
+      padding:13px 17px;
+      font:600 12px/1 Arial,sans-serif;
+      letter-spacing:.12em;
+      box-shadow:0 14px 40px rgba(0,0,0,.35)
+    }
+
+    .g6-settings-overlay{
+      position:fixed;
+      inset:0;
+      z-index:10000;
+      background:rgba(0,0,0,.78);
+      backdrop-filter:blur(10px);
+      display:none;
+      overflow:auto;
+      padding:18px
+    }
+
+    .g6-settings-overlay.open{display:block}
+
+    .g6-settings{
+      width:min(720px,100%);
+      margin:30px auto;
+      background:#090909;
+      color:#fff;
+      border:1px solid #292929;
+      border-radius:24px;
+      overflow:hidden;
+      box-shadow:0 30px 90px rgba(0,0,0,.55)
+    }
+
+    .g6-settings-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:22px;
+      border-bottom:1px solid #242424
+    }
+
+    .g6-settings-head h2{
+      margin:0;
+      font-size:19px;
+      letter-spacing:.18em
+    }
+
+    .g6-settings-close{
+      border:0;
+      background:transparent;
+      color:#fff;
+      font-size:30px
+    }
+
+    .g6-settings-body{padding:18px}
+
+    .g6-settings-section{
+      border:1px solid #252525;
+      border-radius:18px;
+      padding:18px;
+      margin-bottom:15px;
+      background:#111
+    }
+
+    .g6-settings-section h3{
+      margin:0 0 15px;
+      font-size:14px;
+      letter-spacing:.12em
+    }
+
+    .g6-settings-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px
+    }
+
+    .g6-settings input,
+    .g6-settings select,
+    .g6-settings textarea{
+      width:100%;
+      box-sizing:border-box;
+      padding:13px;
+      margin:5px 0;
+      border:1px solid #333;
+      border-radius:12px;
+      background:#080808;
+      color:#fff;
+      font-size:16px
+    }
+
+    .g6-settings textarea{
+      min-height:90px;
+      resize:vertical
+    }
+
+    .g6-settings button.g6-save{
+      width:100%;
+      border:0;
+      border-radius:12px;
+      padding:13px;
+      margin-top:9px;
+      background:#fff;
+      color:#000;
+      font-weight:800
+    }
+
+    .g6-row{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:14px;
+      padding:10px 0;
+      border-bottom:1px solid #222
+    }
+
+    .g6-row:last-child{border-bottom:0}
+
+    .g6-row input[type="checkbox"]{
+      width:22px;
+      height:22px
+    }
+
+    .g6-muted{
+      color:#aaa;
+      font-size:12px;
+      line-height:1.5
+    }
+
+    .g6-status{
+      min-height:18px;
+      margin-top:9px;
+      font-size:12px
+    }
+
+    .g6-danger{
+      border:1px solid #6c2028 !important;
+      color:#ffb9c0
+    }
+
+    html[data-grim-theme="light"] body{
+      background:#f5f5f5 !important;
+      color:#111 !important
+    }
+
+    @media(max-width:600px){
+      .g6-settings-grid{grid-template-columns:1fr}
+      .g6-settings{margin:5px auto 90px}
+    }
+  `;
+  document.head.appendChild(style);
+
+  const button = document.createElement("button");
+  button.className = "g6-settings-btn";
+  button.type = "button";
+  button.textContent = "SETTINGS";
+  button.hidden = true;
+  document.body.appendChild(button);
+
+  const overlay = document.createElement("div");
+  overlay.className = "g6-settings-overlay";
+
+  overlay.innerHTML = `
+    <div class="g6-settings">
+      <div class="g6-settings-head">
+        <div>
+          <div class="g6-muted">GRIM ACCOUNT</div>
+          <h2>SETTINGS</h2>
+        </div>
+        <button class="g6-settings-close" type="button">×</button>
+      </div>
+
+      <div class="g6-settings-body">
+
+        <section class="g6-settings-section">
+          <h3>PROFILE</h3>
+
+          <div class="g6-settings-grid">
+            <input id="g6-first" placeholder="First name">
+            <input id="g6-last" placeholder="Last name">
+          </div>
+
+          <input id="g6-email" type="email" placeholder="Email" disabled>
+          <input id="g6-phone" type="tel" placeholder="Phone number">
+          <input id="g6-birthday" type="date" placeholder="Birthday">
+
+          <select id="g6-size">
+            <option value="">Preferred size</option>
+            <option>XS</option>
+            <option>S</option>
+            <option>M</option>
+            <option>L</option>
+            <option>XL</option>
+            <option>XXL</option>
+          </select>
+
+          <textarea id="g6-address"
+            placeholder="Default shipping address"></textarea>
+
+          <button class="g6-save" id="g6-save-profile">
+            SAVE PROFILE
+          </button>
+
+          <div class="g6-status" id="g6-profile-status"></div>
+        </section>
+
+        <section class="g6-settings-section">
+          <h3>SECURITY</h3>
+
+          <div class="g6-row">
+            <div>
+              <strong>Two-Factor Authentication</strong>
+              <div class="g6-muted">
+                Require an additional verification code after your password.
+              </div>
+            </div>
+
+            <input id="g6-2fa" type="checkbox">
+          </div>
+
+          <div class="g6-muted" id="g6-security-info"></div>
+          <div class="g6-status" id="g6-2fa-status"></div>
+        </section>
+
+        <section class="g6-settings-section">
+          <h3>CHANGE PASSWORD</h3>
+
+          <input id="g6-current-password"
+            type="password"
+            autocomplete="current-password"
+            placeholder="Current password">
+
+          <input id="g6-new-password"
+            type="password"
+            autocomplete="new-password"
+            placeholder="New password">
+
+          <input id="g6-confirm-password"
+            type="password"
+            autocomplete="new-password"
+            placeholder="Confirm new password">
+
+          <button class="g6-save" id="g6-change-password">
+            CHANGE PASSWORD
+          </button>
+
+          <div class="g6-status" id="g6-password-status"></div>
+        </section>
+
+        <section class="g6-settings-section">
+          <h3>APPEARANCE</h3>
+
+          <select id="g6-theme">
+            <option value="system">Use phone/system appearance</option>
+            <option value="dark">Dark mode</option>
+            <option value="light">Light mode</option>
+          </select>
+
+          <button class="g6-save" id="g6-save-theme">
+            SAVE APPEARANCE
+          </button>
+
+          <div class="g6-status" id="g6-theme-status"></div>
+        </section>
+
+        <section class="g6-settings-section">
+          <h3>SHOPPING</h3>
+
+          <input id="g6-colorways"
+            placeholder="Preferred colorways — e.g. Obsidian, Veil">
+
+          <textarea id="g6-checkout"
+            placeholder="Checkout preferences / delivery notes"></textarea>
+
+          <div class="g6-status" id="g6-shopping-status"></div>
+        </section>
+
+        <section class="g6-settings-section">
+          <h3>NOTIFICATIONS</h3>
+
+          <label class="g6-row">
+            <span>Order updates</span>
+            <input id="g6-notify-orders" type="checkbox">
+          </label>
+
+          <label class="g6-row">
+            <span>Wallet activity</span>
+            <input id="g6-notify-wallet" type="checkbox">
+          </label>
+
+          <label class="g6-row">
+            <span>New GRIM drops</span>
+            <input id="g6-notify-drops" type="checkbox">
+          </label>
+
+          <label class="g6-row">
+            <span>Restocks</span>
+            <input id="g6-notify-restocks" type="checkbox">
+          </label>
+
+          <label class="g6-row">
+            <span>Promotions</span>
+            <input id="g6-notify-promotions" type="checkbox">
+          </label>
+
+          <label class="g6-row">
+            <span>House of GRIM</span>
+            <input id="g6-notify-house" type="checkbox">
+          </label>
+
+          <div class="g6-status" id="g6-notification-status"></div>
+        </section>
+
+        <section class="g6-settings-section">
+          <h3>PRIVACY & ACCOUNT</h3>
+
+          <label class="g6-row">
+            <div>
+              <strong>Marketing emails</strong>
+              <div class="g6-muted">
+                Receive GRIM marketing and promotional communication.
+              </div>
+            </div>
+            <input id="g6-marketing" type="checkbox">
+          </label>
+
+          <div class="g6-row">
+            <span>Account status</span>
+            <strong id="g6-account-status">ACTIVE</strong>
+          </div>
+
+          <div class="g6-muted">
+            Account deletion/deactivation should require confirmation
+            before any permanent action.
+          </div>
+        </section>
+
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const $ = selector => overlay.querySelector(selector);
+
+  async function loadSettings() {
+    try {
+      const data = await api("/api/settings");
+
+      button.hidden = false;
+
+      const p = data.profile || {};
+      const s = data.security || {};
+      const n = data.notifications || {};
+      const privacy = data.privacy || {};
+      const shopping = data.shopping || {};
+
+      $("#g6-first").value = p.firstName || "";
+      $("#g6-last").value = p.lastName || "";
+      $("#g6-email").value = p.email || "";
+      $("#g6-phone").value = p.phone || "";
+      $("#g6-birthday").value = p.birthday || "";
+      $("#g6-size").value = p.preferredSize || "";
+      $("#g6-address").value = p.shippingAddress || "";
+
+      $("#g6-2fa").checked = s.twoFactorEnabled === true;
+
+      $("#g6-theme").value = data.appearance || "system";
+
+      $("#g6-colorways").value =
+        Array.isArray(shopping.preferredColorways)
+          ? shopping.preferredColorways.join(", ")
+          : (shopping.preferredColorways || "");
+
+      $("#g6-checkout").value =
+        typeof shopping.checkoutPreferences === "string"
+          ? shopping.checkoutPreferences
+          : "";
+
+      $("#g6-notify-orders").checked = n.orders !== false;
+      $("#g6-notify-wallet").checked = n.wallet !== false;
+      $("#g6-notify-drops").checked = n.drops !== false;
+      $("#g6-notify-restocks").checked = n.restocks !== false;
+      $("#g6-notify-promotions").checked = n.promotions === true;
+      $("#g6-notify-house").checked = n.houseOfGrim !== false;
+
+      $("#g6-marketing").checked =
+        privacy.marketingConsent === true;
+
+      $("#g6-account-status").textContent =
+        String(privacy.accountStatus || "active").toUpperCase();
+
+      const securityBits = [];
+
+      if (s.googleConnected) securityBits.push("Google connected");
+      if (s.lastLoginAt) securityBits.push("Last login recorded");
+      if (s.passwordChangedAt) securityBits.push("Password history active");
+
+      $("#g6-security-info").textContent =
+        securityBits.join(" • ");
+
+      applyTheme(data.appearance || "system");
+
+    } catch {
+      button.hidden = true;
+    }
+  }
+
+  button.onclick = async () => {
+    overlay.classList.add("open");
+    await loadSettings();
+  };
+
+  $(".g6-settings-close").onclick = () =>
+    overlay.classList.remove("open");
+
+  overlay.addEventListener("click", e => {
+    if (e.target === overlay) overlay.classList.remove("open");
+  });
+
+  $("#g6-save-profile").onclick = async () => {
+    const status = $("#g6-profile-status");
+
+    try {
+      status.textContent = "Saving…";
+
+      await api("/api/settings/profile", {
+        method: "POST",
+        body: JSON.stringify({
+          firstName: $("#g6-first").value.trim(),
+          lastName: $("#g6-last").value.trim(),
+          phone: $("#g6-phone").value.trim(),
+          birthday: $("#g6-birthday").value || null,
+          preferredSize: $("#g6-size").value,
+          shippingAddress: $("#g6-address").value.trim()
+        })
+      });
+
+      status.textContent = "Profile saved.";
+    } catch (err) {
+      status.textContent = err.message;
+    }
+  };
+
+  $("#g6-2fa").onchange = async e => {
+    const status = $("#g6-2fa-status");
+
+    try {
+      status.textContent = "Saving…";
+
+      await api("/api/settings/2fa", {
+        method: "POST",
+        body: JSON.stringify({
+          enabled: e.target.checked
+        })
+      });
+
+      status.textContent =
+        e.target.checked
+          ? "2FA enabled."
+          : "2FA disabled.";
+
+    } catch (err) {
+      e.target.checked = !e.target.checked;
+      status.textContent = err.message;
+    }
+  };
+
+  $("#g6-change-password").onclick = async () => {
+    const status = $("#g6-password-status");
+    const currentPassword = $("#g6-current-password").value;
+    const newPassword = $("#g6-new-password").value;
+    const confirm = $("#g6-confirm-password").value;
+
+    if (!currentPassword) {
+      status.textContent = "Enter your current password.";
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      status.textContent =
+        "New password must contain at least 8 characters.";
+      return;
+    }
+
+    if (newPassword !== confirm) {
+      status.textContent = "New passwords do not match.";
+      return;
+    }
+
+    try {
+      status.textContent = "Changing password…";
+
+      await api("/api/settings/password", {
+        method: "POST",
+        body: JSON.stringify({
+          currentPassword,
+          newPassword
+        })
+      });
+
+      $("#g6-current-password").value = "";
+      $("#g6-new-password").value = "";
+      $("#g6-confirm-password").value = "";
+
+      status.textContent = "Password changed.";
+    } catch (err) {
+      status.textContent = err.message;
+    }
+  };
+
+  $("#g6-save-theme").onclick = async () => {
+    const theme = $("#g6-theme").value;
+    const status = $("#g6-theme-status");
+
+    try {
+      status.textContent = "Saving…";
+
+      await api("/api/settings/appearance", {
+        method: "POST",
+        body: JSON.stringify({ theme })
+      });
+
+      applyTheme(theme);
+      status.textContent = "Appearance saved.";
+    } catch (err) {
+      status.textContent = err.message;
+    }
+  };
+
+  loadSettings();
+})();
