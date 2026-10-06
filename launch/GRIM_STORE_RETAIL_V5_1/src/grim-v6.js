@@ -318,16 +318,43 @@ return res.json({
       return res.json({
         ok: true,
         profile: {
-          firstName: user.first_name || "",
-          lastName: user.last_name || "",
-          name: user.name || "",
-          email: user.email || "",
-          phone: user.phone || ""
-        },
-        security: {
-          twoFactorEnabled: user.two_factor_enabled === true
-        },
-        appearance: user.theme_preference || "system"
+  firstName: user.first_name || "",
+  lastName: user.last_name || "",
+  name: user.name || "",
+  email: user.email || "",
+  phone: user.phone || "",
+  birthday: user.birthday || "",
+  preferredSize: user.preferred_size || "",
+  shippingAddress: user.shipping_address || {}
+},
+
+security: {
+  twoFactorEnabled: user.two_factor_enabled === true,
+  googleConnected: user.google_connected === true,
+  passwordChangedAt: user.password_changed_at || null,
+  lastLoginAt: user.last_login_at || null
+},
+
+appearance: user.theme_preference || "system",
+
+shopping: {
+  preferredColorways: user.preferred_colorways || [],
+  checkoutPreferences: user.checkout_preferences || {}
+},
+
+notifications: {
+  orders: user.notify_orders !== false,
+  wallet: user.notify_wallet !== false,
+  drops: user.notify_drops !== false,
+  restocks: user.notify_restocks !== false,
+  promotions: user.notify_promotions === true,
+  houseOfGrim: user.notify_house_of_grim !== false
+},
+
+privacy: {
+  marketingConsent: user.marketing_consent === true,
+  accountStatus: user.account_status || "active"
+}
       });
     } catch (e) {
       console.error("[GRIM settings]", e);
