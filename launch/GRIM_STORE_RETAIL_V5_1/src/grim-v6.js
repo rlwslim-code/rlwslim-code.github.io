@@ -255,7 +255,166 @@ export function installGrimV6(app, { supabase }) {
       res.status(500).json({error:"Unable to resend the code right now."});
     }
   });
+  // Passwordless email-code sign in
+  app.post("/api/auth/email-code/send", async (req, res) => {
+    if (!requireDb(res)) return;
 
+    const email = cleanEmail(req.body?.email);
+
+    if (!emailOK(email)) {
+      return res.status(400).json({
+        error: "Enter a valid email address."
+      });
+    }
+
+    try {
+      const user = await customerByEmail(email);
+
+      // Generic response prevents account/email enumeration.
+      if (!user) {
+        return res.json({
+          ok: true,
+          message: "If that email belongs to a GRIM account, a sign-in code has been sent."
+        });
+      }
+
+      const code = newOtp();
+      const expires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+      const { error } = await supabase
+        .from("two_factor_challenges")
+        .insert({
+          customer_id: user.id,
+          code_hash: sha256(code),
+          expires_at: expires,
+          attempts_remaining: 5,
+          request_ip: clean(
+            req.headers["x-forwarded-for"] || req.ip || "",
+            160
+          )
+        });
+
+      if (error) throw error;
+
+      await sendTwoFactorCode(user.email, code);
+
+      req.session.pendingEmailCode = {
+        customerId: user.id,
+        email: user.email,
+        issuedAt: Date.now()
+      };
+
+      return res.json({
+        ok: true,
+        message: "If that email belongs to a GRIM account, a sign-in code has been sent."
+      });
+    } catch (e) {
+      console.error("[GRIM email-code send]", e);
+
+      return res.status(500).json({
+        error: "Unable to send a sign-in code right now."
+      });
+    }
+  });
+
+  app.post("/api/auth/email-code/verify", async (req, res) => {
+    if (!requireDb(res)) return;
+
+    const pending = req.session?.pendingEmailCode;
+    const code = clean(req.body?.code, 12);
+
+    if (!pending?.customerId) {
+      return res.status(401).json({
+        error: "Request a new sign-in code."
+      });
+    }
+
+    if (!/^\d{6}$/.test(code)) {
+      return res.status(400).json({
+        error: "Enter the 6-digit code."
+      });
+    }
+
+    try {
+      const { data: challenge, error } = await supabase
+        .from("two_factor_challenges")
+        .select("*")
+        .eq("customer_id", pending.customerId)
+        .eq("used", false)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (
+        !challenge ||
+        new Date(challenge.expires_at).getTime() < Date.now()
+      ) {
+        return res.status(400).json({
+          error: "That code expired. Request a new code."
+        });
+      }
+
+      if (challenge.attempts_remaining <= 0) {
+        return res.status(429).json({
+          error: "Too many attempts. Request a new code."
+        });
+      }
+
+      if (sha256(code) !== challenge.code_hash) {
+        await supabase
+          .from("two_factor_challenges")
+          .update({
+            attempts_remaining:
+              challenge.attempts_remaining - 1
+          })
+          .eq("id", challenge.id);
+
+        return res.status(400).json({
+          error: "Incorrect sign-in code."
+        });
+      }
+
+      await supabase
+        .from("two_factor_challenges")
+        .update({
+          used: true,
+          used_at: new Date().toISOString()
+        })
+        .eq("id", challenge.id);
+
+      const { data: user, error: userErr } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("id", pending.customerId)
+        .single();
+
+      if (userErr) throw userErr;
+
+      req.session.user = sessionUser(user);
+      delete req.session.pendingEmailCode;
+      delete req.session.pending2fa;
+
+      await supabase
+        .from("customers")
+        .update({
+          last_login_at: new Date().toISOString()
+        })
+        .eq("id", user.id);
+
+      return res.json({
+        ok: true,
+        user: req.session.user
+      });
+    } catch (e) {
+      console.error("[GRIM email-code verify]", e);
+
+      return res.status(500).json({
+        error: "Unable to verify the sign-in code right now."
+      });
+    }
+  });
   app.get("/api/account", async (req,res) => {
     if (!requireDb(res)) return;
     const session = requireUser(req,res); if (!session) return;
