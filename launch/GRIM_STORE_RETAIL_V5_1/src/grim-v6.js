@@ -147,13 +147,38 @@ export function installGrimV6(app, { supabase }) {
             !(await bcrypt.compare(String(req.body?.password || ""), user.password_hash))) {
           return res.status(401).json({ error: "Incorrect email or password." });
         }
-        delete req.session.user;
-        await issueTwoFactor(user, req);
-        return res.json({
-          ok: true,
-          requiresTwoFactor: true,
-          emailHint: user.email.replace(/^(.{1,2}).*(@.*)$/, "$1••••$2")
-        });
+        // If the customer has 2FA enabled, require the email code.
+if (user.two_factor_enabled === true) {
+  delete req.session.user;
+
+  await issueTwoFactor(user, req);
+
+  return res.json({
+    ok: true,
+    requiresTwoFactor: true,
+    emailHint: user.email.replace(
+      /^(.{1,2}).*(@.*)$/,
+      "$1***$2"
+    )
+  });
+}
+
+// 2FA is disabled — complete sign-in immediately.
+req.session.user = sessionUser(user);
+delete req.session.pending2fa;
+
+await supabase
+  .from("customers")
+  .update({
+    last_login_at: new Date().toISOString()
+  })
+  .eq("id", user.id);
+
+return res.json({
+  ok: true,
+  requiresTwoFactor: false,
+  user: req.session.user
+});
       }
 
       if (req.method === "POST" && req.path === "/api/auth/google") {
