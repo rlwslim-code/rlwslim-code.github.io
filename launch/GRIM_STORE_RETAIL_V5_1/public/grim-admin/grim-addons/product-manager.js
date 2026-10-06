@@ -720,20 +720,33 @@
 
         <div class="grim-field">
 
-          <label>
-            PRODUCT IMAGE URL
-          </label>
+  <label>
+    PRODUCT IMAGE
+  </label>
 
-          <input
-            id="grimProductImage"
-            type="text"
-            value="${escapeHtml(
-              data.image || ""
-            )}"
-            placeholder="/assets/... or https://..."
-          >
+  <input
+    id="grimProductImageFile"
+    type="file"
+    accept="image/*"
+  >
 
-        </div>
+  <input
+    id="grimProductImage"
+    type="hidden"
+    value="${escapeHtml(
+      data.image || ""
+    )}"
+  >
+
+  <div class="grim-product-message">
+    ${
+      data.image
+        ? "Choose a new image only if you want to replace the current image."
+        : "Choose a photo from your device."
+    }
+  </div>
+
+</div>
 
         <div class="grim-field">
 
@@ -923,7 +936,38 @@
 
       return;
     }
+    const imageFile =
+  $("grimProductImageFile")
+    ?.files?.[0];
 
+if (imageFile) {
+  if (!imageFile.type.startsWith("image/")) {
+    if (message) {
+      message.textContent = "Please choose a valid image.";
+      message.className = "grim-product-message error";
+    }
+    return;
+  }
+
+  if (message) {
+    message.textContent = "Uploading product image…";
+    message.className = "grim-product-message";
+  }
+
+  try {
+    payload.image = await uploadImage(imageFile);
+  } catch (error) {
+    console.error("Product image upload failed:", error);
+
+    if (message) {
+      message.textContent =
+        error?.message || "Product image upload failed.";
+      message.className = "grim-product-message error";
+    }
+
+    return;
+  }
+}
     if (message) {
       message.textContent =
         "Saving product…";
