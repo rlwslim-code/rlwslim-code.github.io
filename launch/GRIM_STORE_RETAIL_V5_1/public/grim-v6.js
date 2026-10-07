@@ -713,6 +713,81 @@
       color:#111 !important
     }
 
+
+    /* GRIM luxury account palette */
+    .g6-settings{
+      background:
+        radial-gradient(circle at 100% 0, rgba(91,42,134,.18), transparent 28%),
+        radial-gradient(circle at 0 100%, rgba(23,78,166,.12), transparent 32%),
+        #070707;
+      border-color:rgba(200,163,75,.38);
+      box-shadow:0 30px 90px rgba(0,0,0,.7), 0 0 0 1px rgba(200,163,75,.06) inset
+    }
+
+    .g6-settings-head{
+      border-bottom-color:rgba(200,163,75,.28);
+      background:linear-gradient(110deg,rgba(200,163,75,.09),rgba(123,13,30,.05) 45%,rgba(91,42,134,.08))
+    }
+
+    .g6-settings-head h2,
+    .g6-settings-section h3{
+      color:#f3efe7
+    }
+
+    .g6-settings-head .g6-muted{
+      color:#c8a34b;
+      opacity:1
+    }
+
+    .g6-settings-section{
+      position:relative;
+      overflow:hidden;
+      background:linear-gradient(145deg,#101010,#090909);
+      border-color:rgba(243,239,231,.13)
+    }
+
+    .g6-settings-section::before{
+      content:"";
+      position:absolute;
+      left:0;
+      top:0;
+      bottom:0;
+      width:3px;
+      background:linear-gradient(#c8a34b,#174ea6,#5b2a86,#7b0d1e)
+    }
+
+    .g6-settings input:focus,
+    .g6-settings select:focus,
+    .g6-settings textarea:focus{
+      outline:none;
+      border-color:#c8a34b;
+      box-shadow:0 0 0 3px rgba(200,163,75,.12)
+    }
+
+    .g6-settings input[type="checkbox"]{
+      accent-color:#c8a34b
+    }
+
+    .g6-settings button.g6-save{
+      background:linear-gradient(100deg,#f3efe7,#c8a34b);
+      color:#070707;
+      box-shadow:0 10px 28px rgba(200,163,75,.13)
+    }
+
+    .g6-settings button.g6-save:active{
+      transform:translateY(1px)
+    }
+
+    .g6-status:not(:empty){
+      color:#c8a34b
+    }
+
+    .g6-settings-btn{
+      border-color:rgba(200,163,75,.55);
+      color:#f3efe7;
+      background:linear-gradient(120deg,#070707,#15100a)
+    }
+
     @media(max-width:600px){
       .g6-settings-grid{grid-template-columns:1fr}
       .g6-settings{margin:5px auto 90px}
@@ -931,7 +1006,23 @@
       $("#g6-phone").value = p.phone || "";
       $("#g6-birthday").value = p.birthday || "";
       $("#g6-size").value = p.preferredSize || "";
-      $("#g6-address").value = p.shippingAddress || "";
+      const shippingAddress = p.shippingAddress;
+      $("#g6-address").value =
+        typeof shippingAddress === "string"
+          ? shippingAddress
+          : (shippingAddress && typeof shippingAddress === "object"
+              ? [
+                  shippingAddress.address,
+                  shippingAddress.line1,
+                  shippingAddress.line2,
+                  shippingAddress.city,
+                  shippingAddress.state,
+                  shippingAddress.postalCode || shippingAddress.zip,
+                  shippingAddress.country
+                ].filter((value, index, all) =>
+                  value && all.indexOf(value) === index
+                ).join(", ")
+              : "");
 
       $("#g6-2fa").checked = s.twoFactorEnabled === true;
 
