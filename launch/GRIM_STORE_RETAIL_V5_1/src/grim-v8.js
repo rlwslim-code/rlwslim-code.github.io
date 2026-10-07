@@ -337,9 +337,6 @@ export function installGrimV8(app, { supabase }) {
     res.setHeader("Cache-Control", "no-store");
     if (!dbReady(res)) return;
     try {
-      const customer = await customerFor(req, res);
-      if (!customer) return;
-
       const reference = clean(req.body?.reference, 80);
       if (!walletRefPattern.test(reference)) {
         return res.status(400).json({ error: "Invalid wallet payment reference." });
@@ -353,6 +350,16 @@ export function installGrimV8(app, { supabase }) {
       }
       const w = metadata.grim_wallet || {};
       const amountMinor = Number(w.amount_minor);
+
+      const session = sessionUser(req, res);
+      if (!session) return;
+      if (!w.email || cleanEmail(w.email) !== cleanEmail(session.email)) {
+        return res.status(403).json({ error: "Sign in with the GRIM account that made this wallet payment." });
+      }
+      const { data: customer, error: customerErr } = await supabase
+        .from("customers").select("id,email").eq("email", cleanEmail(session.email)).maybeSingle();
+      if (customerErr) throw customerErr;
+      if (!customer) return res.status(404).json({ error: "GRIM customer account was not found." });
 
       const verified =
         tx.status === "success" &&
