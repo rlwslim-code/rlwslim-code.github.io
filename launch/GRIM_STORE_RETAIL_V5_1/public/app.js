@@ -681,7 +681,16 @@ if (!finalCity && finalPostcode) {
   fetch('/api/settings',{credentials:'include',cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{
     const b=j?.shopping?.checkoutPreferences?.savedBillingAddress;if(!b)return;savedBilling=b;
     const box=E('savedBillingBox');if(box)box.innerHTML=`<div style="border:1px solid #bbb;padding:11px;margin:6px 0;font-size:11px"><b>SAVED BILLING ADDRESS</b><br>${[b.address,b.city,b.state,b.postal,b.country].filter(Boolean).join(', ')}<div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap"><button type="button" id="useSavedBilling">USE FOR BILLING</button><button type="button" id="useSavedDelivery">USE FOR DELIVERY</button></div></div>`;
-    const fillBilling=()=>{if(E('coBillingSame'))E('coBillingSame').checked=false;if(E('coBillingFields'))E('coBillingFields').style.display='block';E('coBillingAddress').value=b.address||'';E('coBillingCity').value=b.city||'';E('coBillingState').value=b.state||'';E('coBillingPostal').value=b.postal||'';const card=E('savedBillingBox');if(card)card.innerHTML='<div style="border:1px solid #bbb;padding:11px;margin:6px 0;font-size:11px"><b>SAVED BILLING ADDRESS APPLIED ✓</b></div>';};
+    const fillBilling=()=>{
+      const same=E('coBillingSame'),fields=E('coBillingFields');
+      if(same){same.checked=false;same.removeAttribute('checked')}
+      if(fields){fields.hidden=false;fields.style.setProperty('display','block','important')}
+      const set=(id,v)=>{const el=E(id);if(el){el.value=v||'';el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))}};
+      set('coBillingAddress',b.address);set('coBillingCity',b.city);set('coBillingState',b.state);set('coBillingPostal',b.postal);
+      const keep=()=>{if(same)same.checked=false;if(fields){fields.hidden=false;fields.style.setProperty('display','block','important')}};
+      requestAnimationFrame(keep);setTimeout(keep,80);setTimeout(keep,300);
+      const card=E('savedBillingBox');if(card)card.innerHTML='<div style="border:1px solid #bbb;padding:11px;margin:6px 0;font-size:11px"><b>SAVED BILLING ADDRESS APPLIED ✓</b><br><span style="opacity:.75">Your saved address is filled below.</span></div>';
+    };
     E('useSavedBilling')&&(E('useSavedBilling').onclick=fillBilling);E('useSavedDelivery')&&(E('useSavedDelivery').onclick=()=>{E('coAddress').value=b.address||'';E('coCity').value=b.city||'';E('coState').value=b.state||'';E('coPostal').value=b.postal||'';if(b.country&&[...E('coCountry').options].some(o=>o.value===b.country))E('coCountry').value=b.country;paymentAvailability()});
   }).catch(()=>{});
 

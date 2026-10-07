@@ -194,7 +194,18 @@ function openChat(){closeG7();const m=document.createElement("div");m.className=
    if(/\b(human|person|agent|customer care|real support)\b/i.test(q)){say("I can send this conversation to GRIM Customer Care so a real member of the team can help you.");humanBtn();return}
    try{
     const b=await api("/api/v7/assist-ai",{method:"POST",body:JSON.stringify({message:q,context:chatHistory(msgs)})});say(b.answer||"I can help with that.");if(b.escalate)humanBtn()}
-   catch(x){say("GRIM Assist AI is temporarily unavailable. I can still send this conversation to Customer Care.");humanBtn()}
+   catch(x){
+    const local=localReply(q);
+    if(local){say(local);if(needsHuman(q))humanBtn();return}
+    const t=q.toLowerCase();
+    let reply="I’m here 🖤 Tell me what’s on your mind, or ask me anything about GRIM, an order, sizing, delivery, payments, your wallet, or the House.";
+    if(/^(hi|hey|hello|yo|sup|what'?s good|wassup|what'?s up)[!. ]*$/i.test(q)) reply="RAV’KAEL 🖤 I’m good. What’s good with you? You can talk to me normally—or ask me anything about GRIM.";
+    else if(/(are you (okay|good|alright)|how are you|you good)/i.test(q)) reply="I’m good 🖤 Still here with you. How are you doing?";
+    else if(/(thank|thanks|appreciate)/i.test(q)) reply="Always 🖤 RAV’KAEL.";
+    else if(/(who are you|what are you)/i.test(q)) reply="I’m GRIM Assist—the House concierge. I can help with GRIM pieces, sizing, checkout, delivery, orders, wallet questions, the brand story, or just talk with you.";
+    else if(/(grim|brand|legacy|time is borrowed)/i.test(q)) reply="GRIM is premium streetwear built around dark mythology and legacy. TIME IS BORROWED. LEGACY IS EARNED. RAV’KAEL is how the House recognizes its own.";
+    say(reply);if(needsHuman(q))humanBtn()
+   }
  };
 }
 
