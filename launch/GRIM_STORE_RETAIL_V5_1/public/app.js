@@ -1,12 +1,13 @@
 const MARKETS={NG:{name:'Nigeria',currency:'NGN',locale:'en-NG',rate:1},US:{name:'United States',currency:'USD',locale:'en-US',rate:0.00067},GB:{name:'United Kingdom',currency:'GBP',locale:'en-GB',rate:0.00050},CA:{name:'Canada',currency:'CAD',locale:'en-CA',rate:0.00091},AU:{name:'Australia',currency:'AUD',locale:'en-AU',rate:0.00102},DE:{name:'Germany',currency:'EUR',locale:'de-DE',rate:0.00057},FR:{name:'France',currency:'EUR',locale:'fr-FR',rate:0.00057},IT:{name:'Italy',currency:'EUR',locale:'it-IT',rate:0.00057},ES:{name:'Spain',currency:'EUR',locale:'es-ES',rate:0.00057},NL:{name:'Netherlands',currency:'EUR',locale:'nl-NL',rate:0.00057},GH:{name:'Ghana',currency:'GHS',locale:'en-GH',rate:0.0073},ZA:{name:'South Africa',currency:'ZAR',locale:'en-ZA',rate:0.0114},KE:{name:'Kenya',currency:'KES',locale:'en-KE',rate:0.086},AE:{name:'United Arab Emirates',currency:'AED',locale:'en-AE',rate:0.00246},JP:{name:'Japan',currency:'JPY',locale:'ja-JP',rate:0.100}};
 const CURRENCY_RATES={NGN:1,USD:.00067,GBP:.00050,EUR:.00057,CAD:.00091,AUD:.00102,GHS:.0073,ZAR:.0114,KES:.086,AED:.00246,JPY:.100};
-let market=JSON.parse(localStorage.getItem('grimMarket')||'null')||{country:'NG',currency:'NGN'}; market.currency='NGN';
-function money(n){return new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN',maximumFractionDigits:0}).format(Number(n)||0)}
+let market=JSON.parse(localStorage.getItem('grimMarket')||'null')||{country:'NG',currency:'NGN'};
+function marketInfo(){return MARKETS[market.country]||MARKETS.NG}
+function money(n){const m=marketInfo(), value=(Number(n)||0)*Number(m.rate||1);return new Intl.NumberFormat(m.locale,{style:'currency',currency:m.currency,maximumFractionDigits:m.currency==='JPY'?0:2}).format(value)}
 function openMarket(){fillMarket();E('marketModal')?.classList.add('open')}function closeMarket(){E('marketModal')?.classList.remove('open')}
-function fillMarket(){let c=E('marketCountry'),u=E('marketCurrency');if(!c||!u)return;c.innerHTML=Object.entries(MARKETS).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('');u.innerHTML='<option value="NGN">NGN — Nigerian Naira</option>';c.value=market.country||'NG';u.value='NGN';u.disabled=true}
-function saveMarket(){market={country:E('marketCountry').value,currency:'NGN'};localStorage.setItem('grimMarket',JSON.stringify(market));updateMarketUI();render();draw();closeMarket()}
-function updateMarketUI(){let x=MARKETS[market.country]||MARKETS.NG;market.currency='NGN';if(E('marketLabel'))E('marketLabel').textContent=`${x.name} · NGN`}
-async function detectMarket(){try{let saved=JSON.parse(localStorage.getItem('grimMarket')||'null');if(saved?.country&&MARKETS[saved.country])market={country:saved.country,currency:'NGN'};else{let r=await fetch('/api/market',{cache:'no-store'}),j=await r.json();market={country:j.country&&MARKETS[j.country]?j.country:'NG',currency:'NGN'}}}catch(e){market={country:'NG',currency:'NGN'}}localStorage.setItem('grimMarket',JSON.stringify(market));updateMarketUI()}
+function fillMarket(){let c=E('marketCountry'),u=E('marketCurrency');if(!c||!u)return;c.innerHTML=Object.entries(MARKETS).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('');c.value=market.country||'NG';const m=MARKETS[c.value]||MARKETS.NG;u.innerHTML=`<option value="${m.currency}">${m.currency}</option>`;u.value=m.currency;u.disabled=true}
+function saveMarket(){const country=E('marketCountry').value,m=MARKETS[country]||MARKETS.NG;market={country,currency:m.currency,manual:true};localStorage.setItem('grimMarket',JSON.stringify(market));updateMarketUI();render();draw();closeMarket()}
+function updateMarketUI(){let x=marketInfo();market.currency=x.currency;if(E('marketLabel'))E('marketLabel').textContent=`${x.name} · ${x.currency}`}
+async function detectMarket(){try{let saved=JSON.parse(localStorage.getItem('grimMarket')||'null');if(saved?.manual&&saved?.country&&MARKETS[saved.country]){const m=MARKETS[saved.country];market={country:saved.country,currency:m.currency,manual:true}}else{let r=await fetch('/api/market',{cache:'no-store'}),j=await r.json();const country=j.country&&MARKETS[j.country]?j.country:'NG',m=MARKETS[country]||MARKETS.NG;market={country,currency:m.currency,manual:false}}}catch(e){market={country:'NG',currency:'NGN',manual:false}}localStorage.setItem('grimMarket',JSON.stringify(market));updateMarketUI()}
 
 const FALLBACK_CATALOG=[{"id":1,"name":"Rose Reaper","type":"Hoodie","price":28000,"color":"Pink"},{"id":2,"name":"Veil","type":"Hoodie","price":28000,"color":"White"},{"id":3,"name":"Abyss","type":"Hoodie","price":28000,"color":"Blue"},{"id":4,"name":"Eclipse Gold","type":"Hoodie","price":28000,"color":"Yellow"},{"id":5,"name":"Rose Reaper","type":"Hoodie","price":28000,"color":"Pink"},{"id":6,"name":"Eclipse Gold","type":"Armless","price":15000,"color":"Yellow"},{"id":7,"name":"Bloodline","type":"Hoodie","price":28000,"color":"Red"},{"id":8,"name":"Obsidian","type":"Armless","price":15000,"color":"Black"},{"id":10,"name":"Obsidian / Veil","type":"Tee","price":18000,"color":"Mixed"},{"id":11,"name":"Veil / Abyss","type":"Hoodie","price":28000,"color":"Mixed"},{"id":12,"name":"Veil","type":"Tee","price":18000,"color":"White"},{"id":13,"name":"Veil / Abyss / Obsidian","type":"Armless","price":15000,"color":"Mixed"},{"id":14,"name":"Void Violet","type":"Hoodie","price":28000,"color":"Purple"},{"id":15,"name":"Veil / Obsidian","type":"Hoodie","price":28000,"color":"Mixed"},{"id":16,"name":"Obsidian / Veil","type":"Hoodie","price":28000,"color":"Mixed"},{"id":17,"name":"Rose Reaper","type":"Hoodie","price":28000,"color":"Pink"},{"id":18,"name":"Obsidian","type":"Hoodie","price":28000,"color":"Black"},{"id":19,"name":"Abyss","type":"Hoodie","price":28000,"color":"Blue"},{"id":20,"name":"Void Violet","type":"Hoodie","price":28000,"color":"Purple"},{"id":21,"name":"Rose Reaper","type":"Tee","price":18000,"color":"Pink"},{"id":22,"name":"Veil","type":"Hoodie","price":28000,"color":"White"},{"id":23,"name":"Obsidian","type":"Tee","price":18000,"color":"Black"},{"id":24,"name":"Veil / Obsidian","type":"Complete GRIM Outfit","price":90000,"color":"Mixed"},{"id":25,"name":"Obsidian","type":"Hoodie","price":28000,"color":"Black"},{"id":26,"name":"Rose Reaper","type":"Hoodie","price":28000,"color":"Pink"}];
 let catalog=FALLBACK_CATALOG.slice(),mode='login',shopPage=1;
@@ -402,6 +403,13 @@ function buildGrimCheckout(){
         <option value="ZA">South Africa</option>
         <option value="KE">Kenya</option>
         <option value="AE">United Arab Emirates</option>
+        <option value="AU">Australia</option>
+        <option value="DE">Germany</option>
+        <option value="FR">France</option>
+        <option value="IT">Italy</option>
+        <option value="ES">Spain</option>
+        <option value="NL">Netherlands</option>
+        <option value="JP">Japan</option>
       </select>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -775,3 +783,12 @@ function startGrimPayment(method) {
 }
 
 buildGrimCheckout();
+
+(function(){
+ const labels={NG:{state:'State',postal:'Postal code',phone:'Phone number'},US:{state:'State',postal:'ZIP code',phone:'Phone number'},GB:{state:'County / Region',postal:'Postcode',phone:'Phone number'},CA:{state:'Province',postal:'Postal code',phone:'Phone number'},AU:{state:'State / Territory',postal:'Postcode',phone:'Phone number'},DE:{state:'State / Region',postal:'Postal code',phone:'Phone number'},FR:{state:'Region',postal:'Postal code',phone:'Phone number'},IT:{state:'Province / Region',postal:'Postal code',phone:'Phone number'},ES:{state:'Province / Region',postal:'Postal code',phone:'Phone number'},NL:{state:'Province',postal:'Postal code',phone:'Phone number'},GH:{state:'Region',postal:'Postal code',phone:'Phone number'},ZA:{state:'Province',postal:'Postal code',phone:'Phone number'},KE:{state:'County',postal:'Postal code',phone:'Phone number'},AE:{state:'Emirate',postal:'Postal code (optional)',phone:'Phone number'},JP:{state:'Prefecture',postal:'Postal code',phone:'Phone number'}};
+ function syncMarketCountry(code,manual){if(!MARKETS[code])return;const m=MARKETS[code];market={country:code,currency:m.currency,manual:manual!==false};localStorage.setItem('grimMarket',JSON.stringify(market));updateMarketUI();render();draw();const u=E('marketCurrency');if(u){u.innerHTML=`<option value="${m.currency}">${m.currency}</option>`;u.value=m.currency}}
+ function checkoutLabels(){const c=E('coCountry');if(!c)return;const x=labels[c.value]||labels.NG;if(E('coState'))E('coState').placeholder=x.state;if(E('coPostal'))E('coPostal').placeholder=x.postal;if(E('coPhone'))E('coPhone').placeholder=x.phone;}
+ document.addEventListener('change',e=>{if(e.target?.id==='marketCountry'){const m=MARKETS[e.target.value]||MARKETS.NG,u=E('marketCurrency');if(u){u.innerHTML=`<option value="${m.currency}">${m.currency}</option>`;u.value=m.currency}}if(e.target?.id==='coCountry'){syncMarketCountry(e.target.value,true);checkoutLabels();}});
+ document.addEventListener('DOMContentLoaded',checkoutLabels);
+ window.GRIM_syncCheckoutMarket=checkoutLabels;
+})();
