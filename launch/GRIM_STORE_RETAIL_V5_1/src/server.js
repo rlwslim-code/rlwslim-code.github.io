@@ -91,7 +91,6 @@ app.use(
  */
 installGrimV6(app, { supabase: grimSupabase });
 installGrimV7(app, { supabase: grimSupabase });
-installGrimV8(app, { supabase: grimSupabase });
 installGrimControl(app);
 
 const dataDir =
@@ -274,6 +273,29 @@ async function refreshProductCache(force = false) {
 
 function productById(id) {
   return productCache.find(product => Number(product.id) === Number(id)) || null;
+}
+
+async function buildAuthoritativeCart(items) {
+  await refreshProductCache();
+
+  const clean = [];
+  let total = 0;
+
+  for (const item of Array.isArray(items) ? items : []) {
+    const product = productById(Number(item.id));
+    const qty = Math.max(1, Math.min(10, Number(item.qty || 1)));
+
+    if (product && Number(product.active) === 1) {
+      clean.push({
+        ...product,
+        qty,
+        size: String(item.size || "M").slice(0, 4)
+      });
+      total += Number(product.price) * qty;
+    }
+  }
+
+  return { items: clean, total };
 }
 
 /*
@@ -571,6 +593,12 @@ async function notifyOrder(order) {
         .join("\n")
   });
 }
+
+installGrimV8(app, {
+  supabase: grimSupabase,
+  priceCart: buildAuthoritativeCart,
+  notifyOrder
+});
 
 app.post("/api/orders", async (req, res) => {
   const {
