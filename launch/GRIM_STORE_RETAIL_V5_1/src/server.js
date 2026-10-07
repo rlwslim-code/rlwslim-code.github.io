@@ -25,7 +25,9 @@ app.set("trust proxy", 1);
 
 const ALLOWED_ORIGINS = new Set([
   "https://rlwslim-code.github.io",
-  "https://rlwslim-code-github-io.vercel.app"
+  "https://rlwslim-code-github-io.vercel.app",
+  "https://grimwear.store",
+  "https://www.grimwear.store"
 ]);
 
 app.use((req, res, next) => {
@@ -85,11 +87,93 @@ app.use(
   })
 );
 
+const persistentAuth = {
+  cookieName: "grim.auth",
+  maxAgeMs: 1000 * 60 * 60 * 24 * 14,
+
+  sign(email) {
+    const normalized = String(email || "").trim().toLowerCase();
+    const payload = Buffer.from(
+      JSON.stringify({
+        email: normalized,
+        exp: Date.now() + this.maxAgeMs
+      }),
+      "utf8"
+    ).toString("base64url");
+
+    const signature = crypto
+      .createHmac("sha256", sessionSecret)
+      .update(`GRIM-auth-v1\n${payload}`)
+      .digest("base64url");
+
+    return `${payload}.${signature}`;
+  },
+
+  verify(token) {
+    try {
+      const [payload, signature] = String(token || "").split(".");
+      if (!payload || !signature) return null;
+
+      const expected = crypto
+        .createHmac("sha256", sessionSecret)
+        .update(`GRIM-auth-v1\n${payload}`)
+        .digest("base64url");
+
+      const a = Buffer.from(signature);
+      const b = Buffer.from(expected);
+      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+
+      const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+      if (
+        typeof data?.email !== "string" ||
+        !data.email ||
+        !Number.isFinite(data.exp) ||
+        data.exp <= Date.now()
+      ) {
+        return null;
+      }
+      return data.email.trim().toLowerCase();
+    } catch {
+      return null;
+    }
+  },
+
+  readEmail(req) {
+    const raw = String(req.headers.cookie || "");
+    const part = raw
+      .split(";")
+      .map(value => value.trim())
+      .find(value => value.startsWith(`${this.cookieName}=`));
+    if (!part) return null;
+    return this.verify(decodeURIComponent(part.slice(this.cookieName.length + 1)));
+  },
+
+  set(res, email) {
+    const token = this.sign(email);
+    res.cookie(this.cookieName, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production" || !!process.env.VERCEL,
+      sameSite: "lax",
+      maxAge: this.maxAgeMs,
+      path: "/"
+    });
+  },
+
+  clear(res) {
+    res.clearCookie(this.cookieName, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production" || !!process.env.VERCEL,
+      sameSite: "lax",
+      path: "/"
+    });
+  }
+};
+
 /*
  * GRIM Control is installed before the application routes so it can observe
  * signup, login, order, support and payment responses without rewriting them.
  */
-installGrimV6(app, { supabase: grimSupabase });
+installGrimV6(app, { supabase: grimSupabase, persistentAuth });
 installGrimV7(app, { supabase: grimSupabase });
 installGrimControl(app);
 
