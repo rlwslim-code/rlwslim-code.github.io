@@ -14,6 +14,7 @@ import { installGrimControl } from "./grim-control/index.js";
 import { grimSupabase } from "./grim-control/supabase.js";
 import { installGrimV6 } from "./grim-v6.js";
 import { installGrimV7 } from "./grim-v7.js";
+import { installGrimV8 } from "./grim-v8.js";
 dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -90,6 +91,7 @@ app.use(
  */
 installGrimV6(app, { supabase: grimSupabase });
 installGrimV7(app, { supabase: grimSupabase });
+installGrimV8(app, { supabase: grimSupabase });
 installGrimControl(app);
 
 const dataDir =
