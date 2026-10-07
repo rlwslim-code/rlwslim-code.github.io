@@ -370,7 +370,9 @@ export function installGrimV8(app, { supabase }) {
         cleanEmail(w.email) === cleanEmail(customer.email) &&
         Number.isSafeInteger(amountMinor) &&
         amountMinor > 0 &&
-        Number(tx.amount) === amountMinor &&
+        Number.isSafeInteger(Number(tx.amount)) &&
+        Number(tx.amount) >= amountMinor &&
+        Number(tx.amount) - amountMinor <= 100000 &&
         tx.currency === "NGN" &&
         w.currency === "NGN";
 
