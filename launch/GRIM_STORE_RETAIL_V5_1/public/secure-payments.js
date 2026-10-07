@@ -207,10 +207,28 @@
       instructions:
         value("coInstructions")
     };
-    const billingSame = document.getElementById("coBillingSame")?.checked !== false;
-    const billing = billingSame
-      ? { country: delivery.country, address: delivery.address, city: delivery.city, state: delivery.state, postal: delivery.postal }
-      : { country: delivery.country, address: value("coBillingAddress"), city: value("coBillingCity"), state: value("coBillingState"), postal: value("coBillingPostal") };
+
+    const billingSame = byId("coBillingSame")?.checked !== false;
+    const billing = billingSame ? {
+      country: delivery.country,
+      address: delivery.address,
+      city: delivery.city,
+      state: delivery.state,
+      postal: delivery.postal
+    } : {
+      country: value("coCountry") || delivery.country,
+      address: value("coBillingAddress"),
+      city: value("coBillingCity"),
+      state: value("coBillingState"),
+      postal: value("coBillingPostal")
+    };
+    const saveCard = byId("coSaveCard")?.checked === true;
+
+    if (!billing.address || !billing.city || !billing.state) {
+      paymentMessage("Complete your billing address first.");
+      return;
+    }
+
 
 
     if (
@@ -240,10 +258,6 @@
     }
 
 
-    if (!billing.address || !billing.city || !billing.state) {
-      paymentMessage("Complete your billing address first.");
-      return;
-    }
     if (
       method === "bank_transfer" &&
       delivery.country !== "NG"
@@ -310,7 +324,7 @@
                 customer,
                 delivery,
                 billing,
-                saveCard: method === "card" && document.getElementById("coSaveCard")?.checked === true,
+                saveCard,
                 items
               })
           }
