@@ -10,7 +10,7 @@ export function installGrimV7(app,{supabase}){
  async function sendEmail(to,subject,html){
   if(!process.env.RESEND_API_KEY||!process.env.TWO_FACTOR_FROM_EMAIL) throw new Error("Email delivery is not configured.");
   const r=await fetch("https://api.resend.com/emails",{method:"POST",headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,"Content-Type":"application/json"},body:JSON.stringify({from:process.env.TWO_FACTOR_FROM_EMAIL,to:Array.isArray(to)?to:[to],subject,html})});
-  if(!r.ok) throw new Error("Unable to send email.");
+  if(!r.ok){const detail=await r.text().catch(()=>"");console.error("[GRIM email delivery]",r.status,detail.slice(0,1000));throw new Error("Unable to send email.");}
  }
  app.post("/api/auth/forgot-password",async(req,res)=>{
   if(!supabase) return res.status(503).json({error:"Account services are unavailable."});

@@ -398,16 +398,16 @@ app.get("/api/products", async (_req, res) => {
 });
 
 app.get("/api/market", (req, res) => {
-  const raw =
-    req.headers["x-vercel-ip-country"] ||
-    req.headers["cf-ipcountry"] ||
-    "NG";
-
-  const country = /^[A-Z]{2}$/.test(String(raw).toUpperCase())
-    ? String(raw).toUpperCase()
-    : "NG";
-
-  res.json({ country });
+  res.setHeader("Cache-Control", "no-store");
+  const raw = req.headers["x-vercel-ip-country"] || req.headers["cf-ipcountry"] || req.headers["x-country-code"] || "NG";
+  const candidate = String(raw).trim().toUpperCase();
+  const country = /^[A-Z]{2}$/.test(candidate) ? candidate : "NG";
+  const displayCurrencies = {NG:"NGN",US:"USD",GB:"GBP",CA:"CAD",AU:"AUD",DE:"EUR",FR:"EUR",IT:"EUR",ES:"EUR",NL:"EUR",GH:"GHS",ZA:"ZAR",KE:"KES",AE:"AED",JP:"JPY"};
+  const displayCurrency = displayCurrencies[country] || "NGN";
+  // Nigeria-based Paystack integrations can settle NGN, and USD only when USD is enabled on the merchant account.
+  const usdEnabled = String(process.env.GRIM_PAYSTACK_USD_ENABLED || "").toLowerCase() === "true";
+  const paymentCurrency = country === "US" && usdEnabled ? "USD" : "NGN";
+  res.json({country, displayCurrency, paymentCurrency});
 });
 
 app.get("/api/me", (req, res) => {
