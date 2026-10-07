@@ -29,7 +29,7 @@ window.startGrimPayment=async function(method){
  message(method==="card"?"Preparing secure card payment…":"Preparing secure bank transfer…");
  try{
   const expectedAmount=await canonicalAmount(items);
-  const result=await fetchJSON("/api/payments/initialize",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({method,expectedAmount,saveCard:byId("coSaveCard")?.checked===true,customer,delivery,billing:{...delivery},items:items.map(i=>({id:Number(i.id),qty:Math.max(1,Number(i.qty||1)),size:String(i.size||"M")}))})});
+  const result=await fetchJSON("/api/payments/initialize",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({method,expectedAmount,marketCountry:delivery.country,displayCurrency:(window.market?.currency||null),saveCard:byId("coSaveCard")?.checked===true,customer,delivery,billing:{...delivery},items:items.map(i=>({id:Number(i.id),qty:Math.max(1,Number(i.qty||1)),size:String(i.size||"M")}))})});
   if(!result.authorizationUrl)throw new Error("Paystack did not return a secure checkout link.");
   try{sessionStorage.setItem("grim_pending_payment_reference",result.reference||"");sessionStorage.setItem("grimPaymentReference",result.reference||"")}catch(_){}
   message("Opening secure Paystack checkout…");window.location.assign(result.authorizationUrl)
