@@ -379,6 +379,7 @@ app.post("/api/v8/wallet/fund/initialize", async (req, res) => {
       const orderRef = clean(req.body?.orderRef || req.body?.order || "", 80) || null;
       const message = clean(req.body?.message, 4000);
       const source = clean(req.body?.source || "customer_care", 40);
+      const assistContext = clean(req.body?.assistContext || "", 4000);
 
       if (!message) {
         return res.status(400).json({ error: "Tell GRIM Customer Care how we can help." });
@@ -416,7 +417,7 @@ app.post("/api/v8/wallet/fund/initialize", async (req, res) => {
         conversation_id: conversation.id,
         event_type: "conversation_created",
         actor_type: "customer",
-        metadata: { source, category }
+        metadata: { source, category, assistContext: assistContext || null }
       });
 
       return res.status(201).json({ ok: true, conversation });

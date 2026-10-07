@@ -154,7 +154,7 @@ export function installGrimV6(app, { supabase, persistentAuth } = {}) {
       const email=cleanEmail(persistentAuth.readEmail(req));
       if(!email) return next();
       const user=await customerByEmail(email);
-      if(!user || user.account_status==="disabled" || user.account_status==="suspended"){
+      if(!user || ["disabled","deactivated","suspended","deleted"].includes(String(user.account_status||"").toLowerCase())){
         persistentAuth.clear?.(res);
         return next();
       }
@@ -207,6 +207,14 @@ export function installGrimV6(app, { supabase, persistentAuth } = {}) {
             !(await bcrypt.compare(String(req.body?.password || ""), user.password_hash))) {
           return res.status(401).json({ error: "Incorrect email or password." });
         }
+        const accountState = String(user.account_status || "active").toLowerCase();
+        if (["disabled","deactivated","suspended","deleted"].includes(accountState)) {
+          return res.status(403).json({
+            error: accountState === "deactivated"
+              ? "This account is deactivated. Contact GRIM Customer Care if you want to reactivate it."
+              : "This account is not currently available."
+          });
+        }
         // If the customer has 2FA enabled, require the email code.
 if (user.two_factor_enabled === true) {
   delete req.session.user;
@@ -258,6 +266,9 @@ return res.json({
         const email = cleanEmail(profile.email);
         let user = await customerByEmail(email);
         let newUser = false;
+        if (user && ["disabled","deactivated","suspended","deleted"].includes(String(user.account_status||"").toLowerCase())) {
+          return res.status(403).json({ error: "This account is not currently available. Contact GRIM Customer Care for help." });
+        }
 
         if (!user) {
           const unusablePassword = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12);
@@ -554,8 +565,16 @@ privacy: {
     if (!session) return;
 
     const enabled = req.body?.enabled === true;
+    const currentPassword = String(req.body?.currentPassword || "");
 
     try {
+      const user = await customerByEmail(session.email);
+      if (!user) return res.status(404).json({ error: "Account not found." });
+      if (user.auth_provider !== "google") {
+        if (!currentPassword || !user.password_hash || !(await bcrypt.compare(currentPassword, user.password_hash))) {
+          return res.status(401).json({ error: "Enter your current password to change 2FA." });
+        }
+      }
       const { error } = await supabase
         .from("customers")
         .update({ two_factor_enabled: enabled })
@@ -651,6 +670,44 @@ privacy: {
       return res.status(500).json({ error: "Unable to change password." });
     }
   });
+  app.post("/api/settings/account/deactivate", async (req,res) => {
+    if (!requireDb(res)) return;
+    const session=requireUser(req,res); if(!session) return;
+    const password=String(req.body?.password||"");
+    try {
+      const user=await customerByEmail(session.email);
+      if(!user) return res.status(404).json({error:"Account not found."});
+      if(user.auth_provider!=="google" && (!password || !user.password_hash || !(await bcrypt.compare(password,user.password_hash))))
+        return res.status(401).json({error:"Enter your current password to deactivate your account."});
+      const {error}=await supabase.from("customers").update({account_status:"deactivated"}).eq("id",user.id);
+      if(error) throw error;
+      persistentAuth?.clear?.(res); clearChallengeCookie(res,"grim.2fa"); clearChallengeCookie(res,"grim.reset");
+      if(req.session) req.session.destroy(()=>{});
+      return res.json({ok:true,message:"Your GRIM account has been deactivated."});
+    } catch(e){console.error("[GRIM deactivate]",e);return res.status(500).json({error:"Unable to deactivate your account right now."});}
+  });
+
+  app.post("/api/settings/account/delete", async (req,res) => {
+    if (!requireDb(res)) return;
+    const session=requireUser(req,res); if(!session) return;
+    const password=String(req.body?.password||"");
+    const confirmation=String(req.body?.confirmation||"").trim().toUpperCase();
+    if(confirmation!=="DELETE GRIM ACCOUNT") return res.status(400).json({error:'Type "DELETE GRIM ACCOUNT" to confirm.'});
+    try {
+      const user=await customerByEmail(session.email);
+      if(!user) return res.status(404).json({error:"Account not found."});
+      if(user.auth_provider!=="google" && (!password || !user.password_hash || !(await bcrypt.compare(password,user.password_hash))))
+        return res.status(401).json({error:"Enter your current password to delete your account."});
+      // Preserve transactional integrity while permanently blocking authentication.
+      const unusable=await bcrypt.hash(crypto.randomBytes(48).toString("hex"),12);
+      const {error}=await supabase.from("customers").update({account_status:"deleted",password_hash:unusable,two_factor_enabled:false}).eq("id",user.id);
+      if(error) throw error;
+      persistentAuth?.clear?.(res); clearChallengeCookie(res,"grim.2fa"); clearChallengeCookie(res,"grim.reset");
+      if(req.session) req.session.destroy(()=>{});
+      return res.json({ok:true,message:"Your GRIM account has been deleted and sign-in has been disabled."});
+    } catch(e){console.error("[GRIM delete account]",e);return res.status(500).json({error:"Unable to delete your account right now."});}
+  });
+
   app.post("/api/wallet/fund/initialize", async (req,res) => {
     if (!requireDb(res)) return;
     const session = requireUser(req,res); if (!session) return;
@@ -783,6 +840,12 @@ privacy: {
   app.post("/api/assist", async (req,res)=>{
     const q=clean(req.body?.message,800).toLowerCase();
     if(!q) return res.status(400).json({error:"Ask GRIM ASSIST a question."});
+    if (/^(hi|hello|hey|hiya|yo|good (morning|afternoon|evening)|hey buddy|hello grim|hi grim)[!. ]*$/i.test(q)) {
+      return res.json({answer:"RAV’KAEL 🖤 Good to have you here. I’m GRIM Assist. Ask me about products, sizing, delivery, payments, your wallet, orders, returns or your account.",source:"conversation",escalate:false});
+    }
+    if (/^(thanks|thank you|thankyou|cheers)[!. ]*$/i.test(q)) {
+      return res.json({answer:"Always, RAV’KAEL 🖤 If you need anything else, I’m here.",source:"conversation",escalate:false});
+    }
     const words=q.split(/\W+/).filter(w=>w.length>2);
     let best=null,score=0;
     for(const f of FAQ){
