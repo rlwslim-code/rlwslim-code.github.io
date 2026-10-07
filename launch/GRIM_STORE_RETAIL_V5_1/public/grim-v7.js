@@ -160,43 +160,58 @@ function openReset(){const m=document.createElement("div");m.className="g7-overl
  m.querySelector(".rf").onsubmit=async e=>{e.preventDefault();const s=m.querySelector(".g7-status");try{const b=await api("/api/auth/reset-password",{method:"POST",body:JSON.stringify({email,code:m.querySelector(".code").value,newPassword:m.querySelector(".np").value})});s.textContent=b.message||"Password reset.";setTimeout(()=>m.remove(),1300)}catch(x){s.textContent=x.message}};
 }
 
-function careChooser(){closeG7();const m=document.createElement("div");m.className="g7-overlay g7-care";m.innerHTML='<div class="g7-card"><button class="g7-x">×</button><small>GRIM CUSTOMER CARE</small><h2>HOW CAN WE HELP?</h2><p>Choose the support service you need.</p><div class="g7-choice"><button class="live">LIVE SUPPORT<span>Talk with GRIM Assist now.</span></button><a href="/support.html">CUSTOMER CARE<span>Orders, delivery, returns, sizing and account enquiries.</span></a></div></div>';document.body.append(m);m.querySelector(".g7-x").onclick=closeG7;m.querySelector(".live").onclick=openChat}
+function careChooser(){closeG7();const m=document.createElement("div");m.className="g7-overlay g7-care";m.innerHTML='<div class="g7-card"><button class="g7-x">×</button><small>GRIM CUSTOMER CARE</small><h2>HOW CAN WE HELP?</h2><p>Choose the support service you need.</p><div class="g7-choice"><button class="live">GRIM ASSIST<span>Instant help with products, sizing, delivery, payments, wallet and orders.</span></button><button class="human">CUSTOMER CARE<span>Send a real support request to the House.</span></button></div></div>';document.body.append(m);m.querySelector(".g7-x").onclick=closeG7;m.querySelector(".live").onclick=openChat;m.querySelector(".human").onclick=()=>openHumanCare()}
 function closeG7(){$$(".g7-overlay").forEach(x=>x.remove())}
 window.openGrimCare=careChooser;
 
 const intents=[
- [/^(hi|hey|hello|hiya|yo|good (morning|afternoon|evening))[\s!👋.]*$/i,"RAV’KAEL 🖤 Welcome to GRIM. It’s good to have you here. How has your shopping experience been, and how may I help you today?"],
- [/(thank|thanks|appreciate)/i,"Always. RAV’KAEL 🖤 Is there anything else I can help you with?"],
- [/(hoodie|shirt|tee|top|clothes|product|collection|shop)/i,"I can help you find the right GRIM piece. Tell me what you’re looking for—product type, size, or colorway—and I’ll guide you."],
- [/(size|sizing|fit)/i,"Available sizes are shown on each product. Tell me which GRIM piece you’re considering and the fit you prefer, and I’ll guide you. For an exact product issue, Customer Care can also confirm before you order."],
- [/(deliver|delivery|shipping|ship)/i,"I can help with delivery. Tell me the destination country and whether you’re asking about a new order or one already placed."],
- [/(return|exchange|refund)/i,"Returns and exchanges depend on the item, condition and fulfillment stage. If you already ordered, I can bring in Customer Care and pass your issue along."],
- [/(wallet|balance|fund)/i,"GRIM Wallet is your store balance. Your displayed currency follows the supported wallet/payment currency for your account and market. You can still use normal checkout where available."],
- [/(payment|charged|charge|paystack|card|money)/i,"For payment questions I can explain the process, but if you were charged or a payment is missing, I should bring in a human agent so nothing is guessed."],
- [/(order|tracking|track)/i,"If you’re signed in, your Account Center shows recent orders. If an order is missing, delayed, or incorrect, I can request a human agent for you."],
+ [/(hoodie|shirt|tee|top|clothes|product|collection|shop)/i,"I can help you find the right GRIM piece. Tell me the product, size or colorway you have in mind."],
+ [/(size|sizing|fit)/i,"Tell me which GRIM piece you’re considering and the fit you prefer. Available sizes are shown on each product, and Customer Care can confirm an exact sizing issue before you order."],
+ [/(deliver|delivery|shipping|ship)/i,"Tell me the destination country and whether this is a new order or an order already placed, and I’ll point you in the right direction."],
+ [/(return|exchange|refund)/i,"If you already placed the order, tell me what happened and I can prepare a Customer Care request with the conversation context."],
+ [/(wallet|balance|fund)/i,"GRIM Wallet holds your supported store balance. You can open it from the wallet bar to view balances, funding and recent activity."],
+ [/(payment|charged|charge|paystack|card|money)/i,"I can explain GRIM payment options. If you were charged, a payment is missing, or checkout failed, I can send the issue to Customer Care without pretending a human has already joined."],
+ [/(order|tracking|track)/i,"Your Account Center shows recent orders when you’re signed in. If an order is missing, delayed or incorrect, I can pass the issue to Customer Care."],
+ [/(pre.?order)/i,"GRIM drops may use preorder availability. The product page and checkout should show the current availability for the piece you choose."],
+ [/(obsidian|veil|bloodline|abyss|void violet|rose reaper|eclipse gold|color|colour)/i,"GRIM colorways include Obsidian, Veil, Bloodline, Abyss, Void Violet, Rose Reaper and Eclipse Gold. Tell me the piece you want and I’ll help narrow the colorway."],
  [/(rav.?kael|ravkael)/i,"RAV’KAEL is how the House recognizes its own—a GRIM greeting and part of the language of the brand. TIME IS BORROWED. LEGACY IS EARNED."],
- [/(human|person|agent|real (help|support)|admin|customer care)/i,"Of course. I can send a request to GRIM Customer Care and pass along the context so you don’t have to start over."]
+ [/(human|person|agent|real (help|support)|admin|customer care)/i,"I can send a real request to GRIM Customer Care and include the context from this conversation so you don’t have to start over."]
 ];
 function localReply(q){for(const [r,a] of intents)if(r.test(q))return a;return null}
-function needsHuman(q){return /(human|person|agent|admin|customer care|charged|payment.*(missing|failed|problem)|missing order|wrong order|account.*(locked|problem))/i.test(q)}
+function needsHuman(q){return /(human|person|agent|admin|customer care|charged|payment.*(missing|failed|problem)|missing order|wrong order|account.*(locked|problem)|refund)/i.test(q)}
+function chatHistory(msgs){return $$(".g7-msg",msgs).slice(-12).map(x=>`${x.classList.contains("g7-me")?"Customer":"GRIM Assist"}: ${x.textContent}`).join("\n")}
 
-function openChat(){closeG7();const m=document.createElement("div");m.className="g7-overlay";m.innerHTML='<div class="g7-card g7-chat-card"><div class="g7-chat-head"><button class="g7-back">← BACK TO CUSTOMER CARE</button><button class="g7-x">×</button><small>GRIM ASSIST</small><h2>LIVE SUPPORT</h2></div><div class="g7-messages"><div class="g7-msg g7-bot">RAV’KAEL 🖤 Welcome to GRIM. How may I help you today?</div></div><form class="g7-chat-form"><input maxlength="800" placeholder="Message GRIM Assist…" required><button>SEND</button></form></div>';document.body.append(m);
+function openChat(){closeG7();const m=document.createElement("div");m.className="g7-overlay";m.innerHTML='<div class="g7-card g7-chat-card"><div class="g7-chat-head"><button class="g7-back">← BACK TO CUSTOMER CARE</button><button class="g7-x">×</button><small>GRIM ASSIST</small><h2>LIVE SUPPORT</h2></div><div class="g7-messages"><div class="g7-msg g7-bot">RAV’KAEL 🖤 Welcome to GRIM. It’s good to have you here. How has your shopping experience been, and how may I help you today?</div></div><form class="g7-chat-form"><input maxlength="800" placeholder="Message GRIM Assist…" required><button>SEND</button></form></div>';document.body.append(m);
  m.querySelector(".g7-x").onclick=closeG7;m.querySelector(".g7-back").onclick=careChooser;const msgs=m.querySelector(".g7-messages"),form=m.querySelector("form");
  const say=(t,who="bot")=>{const d=document.createElement("div");d.className=`g7-msg g7-${who}`;d.textContent=t;msgs.append(d);msgs.scrollTop=msgs.scrollHeight};
- const humanBtn=()=>{if(msgs.querySelector(".g7-human"))return;const b=document.createElement("button");b.className="g7-human";b.textContent="REQUEST HUMAN SUPPORT";b.onclick=()=>humanRequest(msgs,say);msgs.append(b);msgs.scrollTop=msgs.scrollHeight};
- form.onsubmit=async e=>{e.preventDefault();const inp=form.querySelector("input"),q=inp.value.trim();if(!q)return;say(q,"me");inp.value="";let a=localReply(q);
-   if(a){say(a);if(needsHuman(q))humanBtn();return}
-   try{const b=await api("/api/assist",{method:"POST",body:JSON.stringify({message:q})});say(b.answer||"I can help with that.");if(b.escalate)humanBtn()}
-   catch{say("I’m having trouble reaching store information right now. I can still request GRIM Customer Care for you.");humanBtn()}
+ const humanBtn=()=>{if(msgs.querySelector(".g7-human"))return;const b=document.createElement("button");b.className="g7-human";b.textContent="REQUEST HUMAN SUPPORT";b.onclick=()=>openHumanCare(chatHistory(msgs));msgs.append(b);msgs.scrollTop=msgs.scrollHeight};
+ form.onsubmit=async e=>{e.preventDefault();const inp=form.querySelector("input"),q=inp.value.trim();if(!q)return;say(q,"me");inp.value="";
+   if(needsHuman(q)){const a=localReply(q);say(a||"I can send this to GRIM Customer Care with the context from our conversation.");humanBtn();return}
+   const local=localReply(q);if(local){say(local);return}
+   try{const b=await api("/api/assist",{method:"POST",body:JSON.stringify({message:q,context:chatHistory(msgs)})});say(b.answer||"I can help with that.");if(b.escalate)humanBtn()}
+   catch{say("I’m having trouble reaching store information right now. I can still send a real Customer Care request for you.");humanBtn()}
  };
 }
-async function humanRequest(msgs,say){
- const old=msgs.querySelector(".g7-human");old?.remove();
- let account=null;try{account=await api("/api/account")}catch{}
- const wrap=document.createElement("form");wrap.className="g7-human-form";
- wrap.innerHTML=`<input name="name" placeholder="Your name" value="${esc(account?.user?.name||"")}" required><input name="email" type="email" placeholder="Email" value="${esc(account?.user?.email||"")}" required><input name="order" placeholder="Order reference (optional)"><textarea name="message" placeholder="Briefly tell the agent what you need help with" required></textarea><button>SEND TO GRIM CUSTOMER CARE</button><p class="g7-status"></p>`;
- msgs.append(wrap);msgs.scrollTop=msgs.scrollHeight;
- wrap.onsubmit=async e=>{e.preventDefault();const f=new FormData(wrap),s=wrap.querySelector(".g7-status");try{const b=await api("/api/support",{method:"POST",body:JSON.stringify({topic:"Live support escalation",name:f.get("name"),email:f.get("email"),order:f.get("order"),message:f.get("message")})});wrap.remove();say(`Your request has reached the House. GRIM Customer Care has been notified${b.ticketId?` — ticket ${b.ticketId}`:""}. You can continue here while you wait.`)}catch(x){s.textContent=x.message}};
+
+async function openHumanCare(context=""){closeG7();const m=document.createElement("div");m.className="g7-overlay";m.innerHTML='<div class="g7-card"><button class="g7-x">×</button><small>GRIM CUSTOMER CARE</small><h2>CONTACT THE HOUSE</h2><p>This creates a real support request. It does not claim an agent is already connected.</p><form class="g7-human-form"><select name="category" required><option value="general">General enquiry</option><option value="order">Order</option><option value="delivery">Delivery</option><option value="return">Return / exchange</option><option value="payment">Payment / charged</option><option value="wallet">GRIM Wallet</option><option value="account">Account</option><option value="sizing">Sizing</option></select><input name="order" placeholder="Order reference (optional)"><textarea name="message" placeholder="Tell Customer Care what you need help with" required></textarea><button>SEND TO GRIM CUSTOMER CARE</button><p class="g7-status"></p></form><div class="g7-care-history"></div></div>';document.body.append(m);m.querySelector(".g7-x").onclick=closeG7;
+ const form=m.querySelector("form"),status=m.querySelector(".g7-status"),history=m.querySelector(".g7-care-history");
+ if(context)form.message.value=context.split("\n").filter(x=>x.startsWith("Customer:")).map(x=>x.replace(/^Customer:\s*/,"")).join("\n").slice(0,1800);
+ try{
+   const list=await api("/api/v8/support/conversations");
+   if(list.conversations?.length){history.innerHTML='<small>RECENT SUPPORT REQUESTS</small>';list.conversations.slice(0,5).forEach(c=>{const b=document.createElement("button");b.type="button";b.className="g7-action";b.style.marginTop="8px";b.textContent=`${c.subject||"Customer Care"} · ${c.status||"open"}`;b.onclick=()=>openConversation(c.id);history.append(b)})}
+ }catch(e){if(/sign in/i.test(e.message||""))status.textContent="Sign in to create or view Customer Care requests."}
+ form.onsubmit=async e=>{e.preventDefault();const f=new FormData(form),btn=form.querySelector("button");btn.disabled=true;status.textContent="Sending to the House…";
+   const customerMessage=String(f.get("message")||"").trim();
+   const fullContext=context?`${customerMessage}\n\nGRIM Assist context:\n${context}`:customerMessage;
+   try{const b=await api("/api/v8/support/conversations",{method:"POST",body:JSON.stringify({subject:"Customer Care",category:f.get("category"),orderRef:f.get("order"),message:fullContext,source:"customer_care"})});status.textContent="Your request has reached GRIM Customer Care.";setTimeout(()=>openConversation(b.conversation.id),650)}
+   catch(x){btn.disabled=false;status.textContent=x.message||"Unable to send your request."}
+ };
+}
+
+async function openConversation(id){closeG7();const m=document.createElement("div");m.className="g7-overlay";m.innerHTML='<div class="g7-card g7-chat-card"><div class="g7-chat-head"><button class="g7-back">← CUSTOMER CARE</button><button class="g7-x">×</button><small>GRIM CUSTOMER CARE</small><h2>SUPPORT REQUEST</h2></div><div class="g7-messages"><p>Loading…</p></div><form class="g7-chat-form"><input maxlength="4000" placeholder="Reply to Customer Care…" required><button>SEND</button></form></div>';document.body.append(m);m.querySelector(".g7-x").onclick=closeG7;m.querySelector(".g7-back").onclick=()=>openHumanCare();const msgs=m.querySelector(".g7-messages"),form=m.querySelector("form");
+ try{const b=await api(`/api/v8/support/conversations/${encodeURIComponent(id)}`);msgs.innerHTML="";(b.messages||[]).forEach(x=>{const d=document.createElement("div");d.className=`g7-msg ${x.sender_type==="customer"?"g7-me":"g7-bot"}`;d.textContent=x.message;msgs.append(d)});msgs.scrollTop=msgs.scrollHeight;if(b.conversation?.status==="closed"){form.remove();const p=document.createElement("p");p.className="g7-status";p.textContent="This Customer Care request is closed.";m.querySelector(".g7-card").append(p)}}
+ catch(x){msgs.innerHTML=`<div class="g7-wallet-error">${esc(x.message||"Unable to load this request.")}</div>`}
+ if(form.isConnected)form.onsubmit=async e=>{e.preventDefault();const input=form.querySelector("input"),message=input.value.trim();if(!message)return;const btn=form.querySelector("button");btn.disabled=true;try{await api(`/api/v8/support/conversations/${encodeURIComponent(id)}/messages`,{method:"POST",body:JSON.stringify({message})});openConversation(id)}catch(x){btn.disabled=false;input.setCustomValidity(x.message||"Unable to send.");input.reportValidity();input.setCustomValidity("")}};
 }
 
 async function faq(){try{const rows=await api("/api/faqs");$(".g7-faq")?.remove();const s=document.createElement("section");s.className="g7-faq";s.innerHTML='<small>THE HOUSE ANSWERS</small><h2>NEED TO KNOW</h2><div class="g7-faq-list"></div>';const l=s.querySelector(".g7-faq-list");(rows||[]).forEach((x,i)=>{const d=document.createElement("details");d.dataset.extra=i>1?"1":"0";if(i>1)d.hidden=true;d.innerHTML=`<summary>${esc(x.q)}</summary><p>${esc(x.a)}</p>`;l.append(d)});if((rows||[]).length>2){const b=document.createElement("button");b.className="g7-more";b.textContent="VIEW ALL FAQs";b.onclick=()=>{const ex=$$('details[data-extra="1"]',l),show=ex.some(x=>x.hidden);ex.forEach(x=>x.hidden=!show);b.textContent=show?"SHOW LESS":"VIEW ALL FAQs"};s.append(b)}const f=$("footer")||$(".site-footer");f?f.insertAdjacentElement("beforebegin",s):document.body.append(s)}catch{}}
