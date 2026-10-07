@@ -431,6 +431,18 @@ function buildGrimCheckout(){
       <textarea id="coInstructions"
         placeholder="Delivery instructions (optional)"></textarea>
 
+      <h3>BILLING ADDRESS</h3>
+      <label class="check" style="align-items:center;margin:10px 0"><input id="coBillingSame" type="checkbox" checked> <span>Billing address is the same as delivery</span></label>
+      <div id="coBillingFields" style="display:none">
+        <input id="coBillingAddress" placeholder="Billing street address">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <input id="coBillingCity" placeholder="Billing city">
+          <input id="coBillingState" placeholder="Billing state / province">
+        </div>
+        <input id="coBillingPostal" placeholder="Billing postal / ZIP code">
+      </div>
+      <label class="check" style="align-items:center;margin:10px 0 18px"><input id="coSaveBilling" type="checkbox"> <span>Save billing address to my GRIM account</span></label>
+
       <h3>DELIVERY METHOD</h3>
 
       <label style="display:block;border:1px solid #bbb;padding:16px;margin:10px 0">
@@ -656,6 +668,12 @@ if (!finalCity && finalPostcode) {
 
   paymentAvailability();
   country.addEventListener('change',paymentAvailability);
+  const billingSame=E('coBillingSame'),billingFields=E('coBillingFields');
+  if(billingSame&&billingFields) billingSame.addEventListener('change',()=>{billingFields.style.display=billingSame.checked?'none':'block'});
+  fetch('/api/settings',{credentials:'include',cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{
+    const b=j?.shopping?.checkoutPreferences?.savedBillingAddress;if(!b)return;
+    if(E('coBillingAddress'))E('coBillingAddress').value=b.address||'';if(E('coBillingCity'))E('coBillingCity').value=b.city||'';if(E('coBillingState'))E('coBillingState').value=b.state||'';if(E('coBillingPostal'))E('coBillingPostal').value=b.postal||'';
+  }).catch(()=>{});
 
   E('grimCheckoutForm').onsubmit=e=>{
     e.preventDefault();

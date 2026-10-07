@@ -54,12 +54,17 @@ function mountTop(){
  loadWallet();
 }
 
-function minorMoney(n,c){return money(Number(n||0)/100,c)}
+function displayWalletMoney(n,c){
+ const major=Number(n||0)/100;
+ if(String(c||'').toUpperCase()==='NGN' && typeof window.grimDisplayFromNGN==='function') return window.grimDisplayFromNGN(major);
+ return money(major,c);
+}
+function minorMoney(n,c){return displayWalletMoney(n,c)}
 async function loadWallet(){
  const market=currency();if($(".g7-wallet-market"))$(".g7-wallet-market").textContent=market;
  try{
   const w=await api("/api/v8/wallet"),accounts=Array.isArray(w.accounts)?w.accounts:[];
-  const preferred=accounts.find(x=>x.currency===market)||accounts[0];
+  const preferred=accounts.find(x=>x.currency===market)||accounts.find(x=>x.currency==="NGN")||accounts[0];
   $(".g7-wallet-balance").textContent=preferred?minorMoney(preferred.balance_minor,preferred.currency):money(0,market);
  }catch{if($(".g7-wallet-balance"))$(".g7-wallet-balance").textContent="SIGN IN"}
 }
@@ -72,10 +77,10 @@ async function openWallet(){
  const body=m.querySelector(".g7-wallet-body");
  try{
   const w=await api("/api/v8/wallet"),accounts=Array.isArray(w.accounts)?w.accounts:[],txs=Array.isArray(w.transactions)?w.transactions:[];
-  const market=currency(),preferred=accounts.find(x=>x.currency===market)||accounts[0],shownCurrency=preferred?.currency||market,shownBalance=preferred?.balance_minor||0;
-  body.innerHTML=`<div class="g7-wallet-total"><small>AVAILABLE BALANCE · ${esc(shownCurrency)}</small><strong>${esc(minorMoney(shownBalance,shownCurrency))}</strong></div><div class="g7-wallet-accounts"></div><div class="g7-wallet-actions"><button class="fund" type="button">FUND WALLET</button><button class="refresh" type="button">REFRESH</button></div><p class="g7-status">Wallet funding is verified securely before your balance is credited.</p><div class="g7-wallet-transactions"><small>RECENT ACTIVITY</small><div class="txlist"></div></div>`;
+  const market=currency(),preferred=accounts.find(x=>x.currency===market)||accounts.find(x=>x.currency==="NGN")||accounts[0],shownCurrency=(preferred?.currency==="NGN"&&market!=="NGN")?market:(preferred?.currency||market),shownBalance=preferred?.balance_minor||0;
+  body.innerHTML=`<div class="g7-wallet-total"><small>AVAILABLE BALANCE · ${esc(shownCurrency)}</small><strong>${esc(preferred?.currency==="NGN"?minorMoney(shownBalance,"NGN"):minorMoney(shownBalance,shownCurrency))}</strong></div><div class="g7-wallet-accounts"></div><div class="g7-wallet-actions"><button class="fund" type="button">FUND WALLET</button><button class="refresh" type="button">REFRESH</button></div><p class="g7-status">Wallet funding is verified securely before your balance is credited.</p><div class="g7-wallet-transactions"><small>RECENT ACTIVITY</small><div class="txlist"></div></div>`;
   const al=body.querySelector(".g7-wallet-accounts");
-  if(accounts.length)accounts.forEach(a=>{const d=document.createElement("div");d.className="g7-wallet-account";d.innerHTML=`<span>${esc(a.currency)}${a.status&&a.status!=="active"?` · ${esc(a.status)}`:""}</span><span>${esc(minorMoney(a.balance_minor,a.currency))}</span>`;al.append(d)});
+  if(accounts.length)accounts.forEach(a=>{const d=document.createElement("div");d.className="g7-wallet-account";const label=(a.currency==="NGN"&&market!=="NGN")?market:a.currency;d.innerHTML=`<span>${esc(label)}${a.status&&a.status!=="active"?` · ${esc(a.status)}`:""}</span><span>${esc(minorMoney(a.balance_minor,a.currency))}</span>`;al.append(d)});
   else al.innerHTML='<div class="g7-wallet-empty">Your GRIM Wallet is connected. No currency balance exists yet. Your first verified wallet funding will create the supported balance securely.</div>';
   const tl=body.querySelector(".txlist");
   if(!txs.length)tl.innerHTML='<div class="g7-wallet-empty">No wallet transactions yet.</div>';
