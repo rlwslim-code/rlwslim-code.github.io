@@ -918,7 +918,14 @@ installGrimPayments(app, { productById, supabase: grimSupabase });
 app.use(
   express.static(publicDir, {
     etag: true,
-    maxAge: process.env.NODE_ENV === "production" ? "5m" : 0
+    maxAge: process.env.NODE_ENV === "production" ? "5m" : 0,
+    setHeaders(res, filePath) {
+      if (/\\.(?:html|js|css)$/i.test(filePath)) {
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+      }
+    }
   })
 );
 
