@@ -25,7 +25,7 @@ export function installGrimV7(app,{supabase}){
    if(error) throw error;
    await sendEmail(email,"Reset your GRIM password",`<div style="background:#090909;color:#eee;padding:32px;font-family:Arial,sans-serif"><b style="letter-spacing:4px">GRIM</b><h2>RESET YOUR PASSWORD</h2><p>Your one-time reset code is:</p><div style="font-size:34px;letter-spacing:8px;font-weight:800">${code}</div><p style="color:#aaa">Expires in 10 minutes. If you did not request this, ignore this email.</p></div>`);
    return res.json(generic);
-  }catch(e){console.error("[GRIM reset request]",e);return res.json(generic);}
+  }catch(e){console.error("[GRIM reset request]",e);return res.status(502).json({error:"GRIM could not deliver the reset code right now. Please try again shortly or contact Customer Care."});}
  });
  app.post("/api/auth/reset-password",async(req,res)=>{
   if(!supabase) return res.status(503).json({error:"Account services are unavailable."});
