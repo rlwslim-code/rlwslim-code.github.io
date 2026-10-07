@@ -6,7 +6,7 @@ function openMarket(){fillMarket();E('marketModal')?.classList.add('open')}funct
 function fillMarket(){let c=E('marketCountry'),u=E('marketCurrency');if(!c||!u)return;c.innerHTML=Object.entries(MARKETS).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('');u.innerHTML=Object.keys(CURRENCY_RATES).map(k=>`<option>${k}</option>`).join('');c.value=market.country;u.value=market.currency;c.onchange=()=>{u.value=MARKETS[c.value].currency}}
 function saveMarket(){market={country:E('marketCountry').value,currency:E('marketCurrency').value};localStorage.setItem('grimMarket',JSON.stringify(market));updateMarketUI();render();draw();closeMarket()}
 function updateMarketUI(){let x=MARKETS[market.country]||MARKETS.NG;if(E('marketLabel'))E('marketLabel').textContent=`${x.name} · ${market.currency}`}
-async function detectMarket(){if(localStorage.getItem('grimMarket')){updateMarketUI();return}try{let r=await fetch('/api/market'),j=await r.json();if(j.country&&MARKETS[j.country])market={country:j.country,currency:MARKETS[j.country].currency};localStorage.setItem('grimMarket',JSON.stringify(market))}catch(e){}updateMarketUI()}
+async function detectMarket(){if(localStorage.getItem('grimMarket')){updateMarketUI();return}try{let r=await fetch('/api/market',{credentials:'include',cache:'no-store'}),j=await r.json();if(j.country&&MARKETS[j.country])market={country:j.country,currency:MARKETS[j.country].currency};localStorage.setItem('grimMarket',JSON.stringify(market))}catch(e){}updateMarketUI()}
 
 const FALLBACK_CATALOG=[{"id":1,"name":"Rose Reaper","type":"Hoodie","price":28000,"color":"Pink"},{"id":2,"name":"Veil","type":"Hoodie","price":28000,"color":"White"},{"id":3,"name":"Abyss","type":"Hoodie","price":28000,"color":"Blue"},{"id":4,"name":"Eclipse Gold","type":"Hoodie","price":28000,"color":"Yellow"},{"id":5,"name":"Rose Reaper","type":"Hoodie","price":28000,"color":"Pink"},{"id":6,"name":"Eclipse Gold","type":"Armless","price":15000,"color":"Yellow"},{"id":7,"name":"Bloodline","type":"Hoodie","price":28000,"color":"Red"},{"id":8,"name":"Obsidian","type":"Armless","price":15000,"color":"Black"},{"id":10,"name":"Obsidian / Veil","type":"Tee","price":18000,"color":"Mixed"},{"id":11,"name":"Veil / Abyss","type":"Hoodie","price":28000,"color":"Mixed"},{"id":12,"name":"Veil","type":"Tee","price":18000,"color":"White"},{"id":13,"name":"Veil / Abyss / Obsidian","type":"Armless","price":15000,"color":"Mixed"},{"id":14,"name":"Void Violet","type":"Hoodie","price":28000,"color":"Purple"},{"id":15,"name":"Veil / Obsidian","type":"Hoodie","price":28000,"color":"Mixed"},{"id":16,"name":"Obsidian / Veil","type":"Hoodie","price":28000,"color":"Mixed"},{"id":17,"name":"Rose Reaper","type":"Hoodie","price":28000,"color":"Pink"},{"id":18,"name":"Obsidian","type":"Hoodie","price":28000,"color":"Black"},{"id":19,"name":"Abyss","type":"Hoodie","price":28000,"color":"Blue"},{"id":20,"name":"Void Violet","type":"Hoodie","price":28000,"color":"Purple"},{"id":21,"name":"Rose Reaper","type":"Tee","price":18000,"color":"Pink"},{"id":22,"name":"Veil","type":"Hoodie","price":28000,"color":"White"},{"id":23,"name":"Obsidian","type":"Tee","price":18000,"color":"Black"},{"id":24,"name":"Veil / Obsidian","type":"Complete GRIM Outfit","price":90000,"color":"Mixed"},{"id":25,"name":"Obsidian","type":"Hoodie","price":28000,"color":"Black"},{"id":26,"name":"Rose Reaper","type":"Hoodie","price":28000,"color":"Pink"}];
 let catalog=FALLBACK_CATALOG.slice(),mode='login',shopPage=1;
@@ -372,6 +372,11 @@ if(E('newsForm'))E('newsForm').onsubmit=async e=>{e.preventDefault();let r=await
 
 function scrollToShop(){document.querySelector('.shop')?.scrollIntoView({behavior:'smooth',block:'start'})}
  // ===== GRIM CHECKOUT V2 =====
+const GRIM_CHECKOUT_INFO_KEY='grimCheckoutInfoV1';
+function readSavedCheckoutInfo(){try{return JSON.parse(localStorage.getItem(GRIM_CHECKOUT_INFO_KEY)||'{}')||{}}catch(_){return{}}}
+function toggleBillingFields(){const b=E('billingFields');if(b)b.style.display=E('coBillingSame')?.checked===false?'block':'none'}
+function saveCheckoutInfo(){if(!E('coSaveInfo')?.checked)return;const v=id=>E(id)?.value?.trim()||'';localStorage.setItem(GRIM_CHECKOUT_INFO_KEY,JSON.stringify({country:v('coCountry')||market.country,firstName:v('coFirst'),lastName:v('coLast'),phone:v('coPhone'),address:v('coAddress'),apartment:v('coApartment'),city:v('coCity'),state:v('coState'),postal:v('coPostal'),billingSame:E('coBillingSame')?.checked!==false,billingAddress:v('coBillingAddress'),billingCity:v('coBillingCity'),billingState:v('coBillingState'),billingPostal:v('coBillingPostal')}))}
+function fillSavedCheckoutInfo(){const s=readSavedCheckoutInfo(),set=(id,v)=>{if(E(id)&&v)E(id).value=v};set('coCountry',s.country||market.country);set('coFirst',s.firstName);set('coLast',s.lastName);set('coPhone',s.phone);set('coAddress',s.address);set('coApartment',s.apartment);set('coCity',s.city);set('coState',s.state);set('coPostal',s.postal);if(E('coBillingSame'))E('coBillingSame').checked=s.billingSame!==false;set('coBillingAddress',s.billingAddress);set('coBillingCity',s.billingCity);set('coBillingState',s.billingState);set('coBillingPostal',s.billingPostal);if(E('coSaveInfo'))E('coSaveInfo').checked=Object.keys(s).length>0;toggleBillingFields()}
 function buildGrimCheckout(){
   const box=document.querySelector('#checkout .checkout-box');
   if(!box)return;
@@ -430,6 +435,15 @@ function buildGrimCheckout(){
         <small>Delivery cost will be calculated for your destination.</small>
       </label>
 
+      <div style="margin:12px 0">
+        <label style="display:flex;gap:8px;align-items:center"><input id="coSaveInfo" type="checkbox"> SAVE MY DELIVERY & BILLING INFO</label>
+        <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input id="coBillingSame" type="checkbox" checked> BILLING ADDRESS SAME AS DELIVERY</label>
+        <div id="billingFields" style="display:none;margin-top:10px">
+          <input id="coBillingAddress" placeholder="Billing street address">
+          <div class="checkout-grid"><input id="coBillingCity" placeholder="Billing city"><input id="coBillingState" placeholder="Billing state / province"></div>
+          <input id="coBillingPostal" placeholder="Billing postal code">
+        </div>
+      </div>
       <button class="dark full" type="submit">
         CONTINUE TO PAYMENT
       </button>
@@ -441,6 +455,7 @@ function buildGrimCheckout(){
       <h3>PAYMENT</h3>
       <p class="muted">Choose how you would like to pay.</p>
 
+      <label style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><input id="coSaveCard" type="checkbox"> SAVE THIS CARD SECURELY FOR FUTURE CHECKOUT</label>
       <button class="dark full" id="payCard" type="button">
         💳 PAY WITH CARD
       </button>
@@ -643,12 +658,16 @@ if (!finalCity && finalPostcode) {
     }
   }
 
-  paymentAvailability();
+  fillSavedCheckoutInfo();
+    E('coBillingSame')?.addEventListener('change',toggleBillingFields);
+    E('coSaveInfo')?.addEventListener('change',()=>{if(E('coSaveInfo').checked)saveCheckoutInfo()});
+    paymentAvailability();
   country.addEventListener('change',paymentAvailability);
 
   E('grimCheckoutForm').onsubmit=e=>{
     e.preventDefault();
 
+    saveCheckoutInfo();
     E('grimCheckoutForm').style.display='none';
     E('paymentStep').style.display='block';
 
