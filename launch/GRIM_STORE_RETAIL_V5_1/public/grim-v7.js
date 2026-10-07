@@ -106,7 +106,7 @@ function openWalletFunding(walletModal){
   const amountMinor=Math.round(naira*100);
   btn.disabled=true;status.textContent="Preparing secure payment…";
   try{
-   const r=await api("/api/v8/wallet/fund/initialize",{method:"POST",body:JSON.stringify({amountMinor,currency:"NGN"})});
+   const r=await Promise.race([api("/api/v8/wallet/fund/initialize",{method:"POST",body:JSON.stringify({amountMinor,currency:"NGN"})}),new Promise((_,reject)=>setTimeout(()=>reject(new Error("Secure payment is taking too long. Please try again.")),15000))]);
    if(!r.authorizationUrl)throw new Error("Secure checkout could not be opened.");
    sessionStorage.setItem("grimWalletFundingReference",r.reference||"");
    location.assign(r.authorizationUrl);
@@ -188,7 +188,9 @@ function openChat(){closeG7();const m=document.createElement("div");m.className=
  form.onsubmit=async e=>{e.preventDefault();const inp=form.querySelector("input"),q=inp.value.trim();if(!q)return;say(q,"me");inp.value="";
    if(needsHuman(q)){const a=localReply(q);say(a||"I can send this to GRIM Customer Care with the context from our conversation.");humanBtn();return}
    const local=localReply(q);if(local){say(local);return}
-   try{const b=await api("/api/assist",{method:"POST",body:JSON.stringify({message:q,context:chatHistory(msgs)})});say(b.answer||"I can help with that.");if(b.escalate)humanBtn()}
+   try{
+    if(/^(hi|hello|hey|hiya|yo|good (morning|afternoon|evening)|hey buddy|hello grim|hi grim)[!. ]*$/i.test(q)){say("RAV’KAEL 🖤 Good to have you here. I’m GRIM Assist. Ask me about products, sizing, delivery, payments, your wallet, orders, returns or your account.");return}
+    const b=await api("/api/assist",{method:"POST",body:JSON.stringify({message:q,context:chatHistory(msgs)})});say(b.answer||"I can help with that.");if(b.escalate)humanBtn()}
    catch{say("I’m having trouble reaching store information right now. I can still send a real Customer Care request for you.");humanBtn()}
  };
 }
@@ -202,8 +204,7 @@ async function openHumanCare(context=""){closeG7();const m=document.createElemen
  }catch(e){if(/sign in/i.test(e.message||""))status.textContent="Sign in to create or view Customer Care requests."}
  form.onsubmit=async e=>{e.preventDefault();const f=new FormData(form),btn=form.querySelector("button");btn.disabled=true;status.textContent="Sending to the House…";
    const customerMessage=String(f.get("message")||"").trim();
-   const fullContext=context?`${customerMessage}\n\nGRIM Assist context:\n${context}`:customerMessage;
-   try{const b=await api("/api/v8/support/conversations",{method:"POST",body:JSON.stringify({subject:"Customer Care",category:f.get("category"),orderRef:f.get("order"),message:fullContext,source:"customer_care"})});status.textContent="Your request has reached GRIM Customer Care.";setTimeout(()=>openConversation(b.conversation.id),650)}
+   try{const b=await api("/api/v8/support/conversations",{method:"POST",body:JSON.stringify({subject:"Customer Care",category:f.get("category"),orderRef:f.get("order"),message:customerMessage,assistContext:context,source:"customer_care"})});status.textContent="Your request has been sent to GRIM Customer Care. A member of the team can respond here.";setTimeout(()=>openConversation(b.conversation.id),650)}
    catch(x){btn.disabled=false;status.textContent=x.message||"Unable to send your request."}
  };
 }

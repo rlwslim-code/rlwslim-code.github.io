@@ -986,10 +986,11 @@
             <strong id="g6-account-status">ACTIVE</strong>
           </div>
 
-          <div class="g6-muted">
-            Account deletion/deactivation should require confirmation
-            before any permanent action.
-          </div>
+          <div class="g6-muted">Deactivate temporarily or permanently disable this customer account. Both actions require confirmation.</div>
+          <button class="g6-secondary-btn" id="g6-deactivate-account" type="button">DEACTIVATE ACCOUNT</button>
+          <button class="g6-secondary-btn" id="g6-delete-account" type="button">DELETE ACCOUNT</button>
+          <button class="g6-save-btn" id="g6-logout" type="button">LOG OUT</button>
+          <div class="g6-status" id="g6-account-action-status"></div>
         </section>
 
       </div>
@@ -1125,7 +1126,8 @@
       await api("/api/settings/2fa", {
         method: "POST",
         body: JSON.stringify({
-          enabled: e.target.checked
+          enabled: e.target.checked,
+          currentPassword: prompt("Enter your current password to change 2FA. For Google-only accounts, tap OK.") || ""
         })
       });
 
@@ -1200,6 +1202,26 @@
     } catch (err) {
       status.textContent = err.message;
     }
+  };
+
+  $("#g6-logout").onclick = async () => {
+    const status=$("#g6-account-action-status");
+    try{status.textContent="Logging out…";await api("/api/logout",{method:"POST"});localStorage.removeItem("grim-push-invite-dismissed-v1");location.href="/"}catch(err){status.textContent=err.message||"Unable to log out."}
+  };
+
+  $("#g6-deactivate-account").onclick = async () => {
+    const status=$("#g6-account-action-status");
+    if(!confirm("Deactivate your GRIM account? You will be signed out and will need Customer Care to reactivate it.")) return;
+    const password=prompt("Enter your current password to confirm. For Google-only accounts, tap OK.")||"";
+    try{status.textContent="Deactivating…";await api("/api/settings/account/deactivate",{method:"POST",body:JSON.stringify({password})});alert("Your GRIM account has been deactivated.");location.href="/"}catch(err){status.textContent=err.message}
+  };
+
+  $("#g6-delete-account").onclick = async () => {
+    const status=$("#g6-account-action-status");
+    const confirmation=prompt('Permanent action. Type "DELETE GRIM ACCOUNT" to continue.')||"";
+    if(confirmation.trim().toUpperCase()!=="DELETE GRIM ACCOUNT") return;
+    const password=prompt("Enter your current password to confirm deletion. For Google-only accounts, tap OK.")||"";
+    try{status.textContent="Deleting account…";await api("/api/settings/account/delete",{method:"POST",body:JSON.stringify({password,confirmation})});alert("Your GRIM account has been deleted and sign-in disabled.");location.href="/"}catch(err){status.textContent=err.message}
   };
 
   loadSettings();
@@ -1506,9 +1528,7 @@ document.querySelector("#g6-disable-push")?.addEventListener("click", g6DisableP
     }, 1200);
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", maybeShowPushInvite, { once: true });
-  } else {
-    maybeShowPushInvite();
-  }
+  // Automatic invitation intentionally disabled. Customers can enable push
+  // from Settings so sign-in and checkout are never interrupted.
+  window.GRIM_showPushInvite = maybeShowPushInvite;
 })();
