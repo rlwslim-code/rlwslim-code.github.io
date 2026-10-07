@@ -191,11 +191,10 @@ function openChat(){closeG7();const m=document.createElement("div");m.className=
  const say=(t,who="bot")=>{const d=document.createElement("div");d.className=`g7-msg g7-${who}`;d.textContent=t;msgs.append(d);msgs.scrollTop=msgs.scrollHeight};
  const humanBtn=()=>{if(msgs.querySelector(".g7-human"))return;const b=document.createElement("button");b.className="g7-human";b.textContent="REQUEST HUMAN SUPPORT";b.onclick=()=>openHumanCare(chatHistory(msgs));msgs.append(b);msgs.scrollTop=msgs.scrollHeight};
  form.onsubmit=async e=>{e.preventDefault();const inp=form.querySelector("input"),q=inp.value.trim();if(!q)return;say(q,"me");inp.value="";
-   if(needsHuman(q)){const a=localReply(q);say(a||"I can send this to GRIM Customer Care with the context from our conversation.");humanBtn();return}
-   const local=localReply(q);if(local){say(local);return}
+   if(/\b(human|person|agent|customer care|real support)\b/i.test(q)){say("I can send this conversation to GRIM Customer Care so a real member of the team can help you.");humanBtn();return}
    try{
-    const b=await api("/api/assist",{method:"POST",body:JSON.stringify({message:q,context:chatHistory(msgs)})});say(b.answer||"I can help with that.");if(b.escalate)humanBtn()}
-   catch{say("I’m having trouble reaching store information right now. I can still send a real Customer Care request for you.");humanBtn()}
+    const b=await api("/api/v7/assist-ai",{method:"POST",body:JSON.stringify({message:q,context:chatHistory(msgs)})});say(b.answer||"I can help with that.");if(b.escalate)humanBtn()}
+   catch(x){say("GRIM Assist AI is temporarily unavailable. I can still send this conversation to Customer Care.");humanBtn()}
  };
 }
 
