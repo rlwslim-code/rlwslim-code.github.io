@@ -238,4 +238,164 @@ export function installGrimV8(app, { supabase }) {
       return res.status(500).json({ error: "Unable to send your message." });
     }
   });
+
+  // Secure NGN wallet funding through Paystack.
+  const walletRefPattern = /^GRIM-WALLET-[a-f0-9]{32}$/;
+
+  function paystackSecret() {
+    const key = String(process.env.PAYSTACK_SECRET_KEY || "").trim();
+    if (!/^sk_(live|test)_[A-Za-z0-9]+$/.test(key)) {
+      const e = new Error("Secure wallet funding is unavailable.");
+      e.statusCode = 503;
+      throw e;
+    }
+    return key;
+  }
+
+  async function paystackRequest(path, key, body) {
+    const response = await fetch(`https://api.paystack.co/transaction/${path}`, {
+      method: body ? "POST" : "GET",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json"
+      },
+      ...(body ? { body: JSON.stringify(body) } : {})
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.status !== true || !result.data) {
+      const e = new Error(result.message || "Paystack could not complete this wallet request.");
+      e.statusCode = response.status >= 400 && response.status < 500 ? 400 : 502;
+      throw e;
+    }
+    return result.data;
+  }
+
+  app.post("/api/v8/wallet/fund/initialize", async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!dbReady(res)) return;
+    try {
+      const customer = await customerFor(req, res);
+      if (!customer) return;
+
+      const amountMinor = Number(req.body?.amountMinor);
+      const currency = clean(req.body?.currency || "NGN", 3).toUpperCase();
+
+      if (currency !== "NGN") {
+        return res.status(400).json({ error: "Wallet funding currently supports NGN only." });
+      }
+      if (!Number.isSafeInteger(amountMinor) || amountMinor < 10000 || amountMinor > 1000000000) {
+        return res.status(400).json({ error: "Enter an amount between ₦100 and ₦10,000,000." });
+      }
+
+      const key = paystackSecret();
+      const { randomBytes } = await import("node:crypto");
+      const reference = `GRIM-WALLET-${randomBytes(16).toString("hex")}`;
+      const origin = "https://rlwslim-code-github-io.vercel.app";
+
+      const tx = await paystackRequest("initialize", key, {
+        email: customer.email,
+        amount: amountMinor,
+        currency: "NGN",
+        reference,
+        callback_url: `${origin}/?grim-wallet=return&reference=${encodeURIComponent(reference)}`,
+        metadata: {
+          grim_wallet: {
+            version: 1,
+            customer_id: customer.id,
+            email: customer.email,
+            amount_minor: amountMinor,
+            currency: "NGN",
+            reference
+          },
+          cancel_action: `${origin}/?grim-wallet=cancel`
+        }
+      });
+
+      let checkout = null;
+      try {
+        const u = new URL(tx.authorization_url);
+        if (u.origin === "https://checkout.paystack.com") checkout = u.href;
+      } catch {}
+      if (tx.reference !== reference || !checkout) {
+        throw new Error("Paystack returned an invalid wallet checkout response.");
+      }
+
+      return res.json({
+        ok: true,
+        reference,
+        amountMinor,
+        currency: "NGN",
+        authorizationUrl: checkout
+      });
+    } catch (e) {
+      console.error("[GRIM V8 wallet fund initialize]", e);
+      return res.status(e.statusCode || 500).json({ error: e.message || "Unable to start wallet funding." });
+    }
+  });
+
+  app.post("/api/v8/wallet/fund/verify", async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!dbReady(res)) return;
+    try {
+      const customer = await customerFor(req, res);
+      if (!customer) return;
+
+      const reference = clean(req.body?.reference, 80);
+      if (!walletRefPattern.test(reference)) {
+        return res.status(400).json({ error: "Invalid wallet payment reference." });
+      }
+
+      const key = paystackSecret();
+      const tx = await paystackRequest(`verify/${encodeURIComponent(reference)}`, key);
+      let metadata = tx.metadata || {};
+      if (typeof metadata === "string") {
+        try { metadata = JSON.parse(metadata); } catch { metadata = {}; }
+      }
+      const w = metadata.grim_wallet || {};
+      const amountMinor = Number(w.amount_minor);
+
+      const verified =
+        tx.status === "success" &&
+        tx.reference === reference &&
+        w.reference === reference &&
+        Number(w.version) === 1 &&
+        String(w.customer_id) === String(customer.id) &&
+        cleanEmail(w.email) === cleanEmail(customer.email) &&
+        Number.isSafeInteger(amountMinor) &&
+        amountMinor > 0 &&
+        Number(tx.amount) === amountMinor &&
+        tx.currency === "NGN" &&
+        w.currency === "NGN";
+
+      if (!verified) {
+        return res.status(409).json({
+          error: "Wallet payment could not be verified. Do not pay again; keep the reference and contact GRIM Customer Care."
+        });
+      }
+
+      const { data: ledger, error } = await supabase.rpc("grim_wallet_credit", {
+        p_customer_id: customer.id,
+        p_currency: "NGN",
+        p_amount_minor: amountMinor,
+        p_source: "paystack",
+        p_payment_reference: reference,
+        p_description: "GRIM Wallet funding",
+        p_idempotency_key: `wallet-fund:${reference}`
+      });
+      if (error) throw error;
+
+      return res.json({
+        ok: true,
+        verified: true,
+        reference,
+        amountMinor,
+        currency: "NGN",
+        ledger
+      });
+    } catch (e) {
+      console.error("[GRIM V8 wallet fund verify]", e);
+      return res.status(e.statusCode || 500).json({ error: e.message || "Unable to verify wallet funding." });
+    }
+  });
+
 }
