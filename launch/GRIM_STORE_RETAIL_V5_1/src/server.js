@@ -13,6 +13,7 @@ import { installGrimPayments } from "./grim-payments.js";
 import { installGrimControl } from "./grim-control/index.js";
 import { grimSupabase } from "./grim-control/supabase.js";
 import { installGrimV6 } from "./grim-v6.js";
+import { installGrimV7 } from "./grim-v7.js";
 dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -88,6 +89,7 @@ app.use(
  * signup, login, order, support and payment responses without rewriting them.
  */
 installGrimV6(app, { supabase: grimSupabase });
+installGrimV7(app, { supabase: grimSupabase });
 installGrimControl(app);
 
 const dataDir =
