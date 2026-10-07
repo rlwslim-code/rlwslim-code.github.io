@@ -202,6 +202,7 @@ export function installGrimPayments(
   app,
   {
     productById,
+    supabase = null,
     fetchImpl = globalThis.fetch,
     secretKey = () => process.env.PAYSTACK_SECRET_KEY
   }
@@ -219,6 +220,64 @@ export function installGrimPayments(
       secret,
       mode: secret.startsWith('sk_live_') ? 'live' : 'test'
     };
+  }
+
+  const cleanEmail = v => String(v || '').trim().toLowerCase();
+
+  async function signedInCustomer(req) {
+    const email=cleanEmail(req.session?.user?.email);
+    if(!supabase || !email) return null;
+    const {data,error}=await supabase.from('customers').select('*').eq('email',email).maybeSingle();
+    if(error) throw error;
+    return data || null;
+  }
+
+  function savedMethods(customer) {
+    const prefs=customer?.checkout_preferences;
+    const list=Array.isArray(prefs?.savedPaymentMethods) ? prefs.savedPaymentMethods : [];
+    return list.filter(x=>x && typeof x==='object');
+  }
+
+  async function writeMethods(customer, methods) {
+    const prefs=(customer?.checkout_preferences && typeof customer.checkout_preferences==='object')
+      ? customer.checkout_preferences : {};
+    const next={...prefs,savedPaymentMethods:methods.slice(0,5)};
+    const {error}=await supabase.from('customers').update({checkout_preferences:next}).eq('id',customer.id);
+    if(error) throw error;
+    customer.checkout_preferences=next;
+  }
+
+  async function storeReusableAuthorization(req, order, authorization) {
+    if(!supabase || order?.saveCard!==true || authorization?.reusable!==true ||
+       typeof authorization?.authorization_code!=='string') return null;
+    const customer=await signedInCustomer(req);
+    if(!customer || cleanEmail(customer.email)!==cleanEmail(order.customer?.email)) return null;
+
+    const signature=String(authorization.signature || '');
+    const existing=savedMethods(customer);
+    const id=signature || createHmac('sha256', configuration().secret)
+      .update(authorization.authorization_code).digest('hex').slice(0,32);
+    const method={
+      id,
+      authorizationCode:authorization.authorization_code,
+      brand:String(authorization.brand || authorization.card_type || 'Card'),
+      last4:String(authorization.last4 || ''),
+      expMonth:String(authorization.exp_month || ''),
+      expYear:String(authorization.exp_year || ''),
+      bank:String(authorization.bank || ''),
+      countryCode:String(authorization.country_code || ''),
+      signature,
+      reusable:true,
+      savedAt:new Date().toISOString()
+    };
+    await writeMethods(customer,[method,...existing.filter(x=>x.id!==id)]);
+    return {id:method.id,brand:method.brand,last4:method.last4,expMonth:method.expMonth,
+      expYear:method.expYear,bank:method.bank,countryCode:method.countryCode};
+  }
+
+  function publicMethod(m) {
+    return {id:m.id,brand:m.brand,last4:m.last4,expMonth:m.expMonth,expYear:m.expYear,
+      bank:m.bank,countryCode:m.countryCode};
   }
 
   async function paystack(path, config, body) {
@@ -252,6 +311,32 @@ export function installGrimPayments(
 
     return result.data;
   }
+
+  app.get('/api/payments/methods', async (req,res)=>{
+    res.setHeader('Cache-Control','no-store');
+    try{
+      const customer=await signedInCustomer(req);
+      if(!customer) return res.status(401).json({error:'Sign in to view saved payment methods.'});
+      return res.json({ok:true,methods:savedMethods(customer).map(publicMethod)});
+    }catch(e){
+      console.error('[GRIM saved payment methods]',e);
+      return res.status(500).json({error:'Unable to load saved payment methods.'});
+    }
+  });
+
+  app.delete('/api/payments/methods/:id', async (req,res)=>{
+    try{
+      const customer=await signedInCustomer(req);
+      if(!customer) return res.status(401).json({error:'Sign in to continue.'});
+      const id=String(req.params.id||'').slice(0,200);
+      const methods=savedMethods(customer);
+      await writeMethods(customer,methods.filter(x=>x.id!==id));
+      return res.json({ok:true});
+    }catch(e){
+      console.error('[GRIM delete payment method]',e);
+      return res.status(500).json({error:'Unable to remove saved payment method.'});
+    }
+  });
 
   app.post('/api/payments/initialize', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -567,11 +652,16 @@ if (paid) {
   }
 }
 
-const reusableAuthorization =
-  paid && order?.saveCard === true && data.authorization?.reusable === true &&
-  typeof data.authorization?.authorization_code === 'string'
-    ? { authorizationCode: data.authorization.authorization_code, brand: String(data.authorization.brand || ''), last4: String(data.authorization.last4 || ''), expMonth: String(data.authorization.exp_month || ''), expYear: String(data.authorization.exp_year || '') }
-    : null;
+let savedPaymentMethod = null;
+if (paid) {
+  try {
+    savedPaymentMethod = await storeReusableAuthorization(req, order, data.authorization);
+  } catch (error) {
+    console.error('[GRIM saved card persistence]', error);
+    // The order is already paid: never turn a successful payment into a failed order
+    // just because optional card-saving failed.
+  }
+}
 
 return res.json({
   ok: true,
