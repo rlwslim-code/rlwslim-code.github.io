@@ -2,6 +2,7 @@ const MARKETS={NG:{name:'Nigeria',currency:'NGN',locale:'en-NG',rate:1},US:{name
 const CURRENCY_RATES={NGN:1,USD:.00067,GBP:.00050,EUR:.00057,CAD:.00091,AUD:.00102,GHS:.0073,ZAR:.0114,KES:.086,AED:.00246,JPY:.100};
 let market=JSON.parse(localStorage.getItem('grimMarket')||'null')||{country:'NG',currency:'NGN'};
 function marketInfo(){return MARKETS[market.country]||MARKETS.NG}
+window.GRIM_MARKETS=MARKETS;window.grimMarketInfo=marketInfo;window.grimDisplayFromNGN=function(v){const m=marketInfo();return new Intl.NumberFormat(m.locale,{style:'currency',currency:m.currency,maximumFractionDigits:2}).format(Number(v||0)*Number(m.rate||1));};
 function money(n){const m=marketInfo(), value=(Number(n)||0)*Number(m.rate||1);return new Intl.NumberFormat(m.locale,{style:'currency',currency:m.currency,maximumFractionDigits:m.currency==='JPY'?0:2}).format(value)}
 function openMarket(){fillMarket();E('marketModal')?.classList.add('open')}function closeMarket(){E('marketModal')?.classList.remove('open')}
 function fillMarket(){let c=E('marketCountry'),u=E('marketCurrency');if(!c||!u)return;c.innerHTML=Object.entries(MARKETS).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('');c.value=market.country||'NG';const m=MARKETS[c.value]||MARKETS.NG;u.innerHTML=`<option value="${m.currency}">${m.currency}</option>`;u.value=m.currency;u.disabled=true}
@@ -449,8 +450,15 @@ function buildGrimCheckout(){
       <h3>PAYMENT</h3>
       <p class="muted">Choose how you would like to pay.</p>
 
+      <div id="savedCardsBox" style="margin:0 0 12px"></div>
+      <label class="check" style="align-items:center;margin:10px 0 14px"><input id="coSaveCard" type="checkbox"> <span>Save this card securely for future GRIM purchases</span></label>
+
       <button class="dark full" id="payCard" type="button">
         💳 PAY WITH CARD
+      </button>
+
+      <button class="dark full" id="payWallet" type="button" style="margin-top:12px">
+        ◈ PAY WITH GRIM WALLET
       </button>
 
       <button class="dark full" id="payTransfer"
@@ -669,6 +677,21 @@ if (!finalCity && finalPostcode) {
     E('paymentMessage').textContent=
       'Preparing secure card payment…';
     startGrimPayment('card');
+  };
+
+  const savedBox=E('savedCardsBox');
+  fetch('/api/payments/methods',{credentials:'include',cache:'no-store'}).then(async r=>{if(!r.ok)return null;return r.json()}).then(j=>{
+    const methods=j?.methods||[]; if(!savedBox)return;
+    savedBox.innerHTML=methods.length?'<div style="font-size:10px;letter-spacing:1.5px;margin-bottom:7px"><b>SAVED CARDS</b></div>'+methods.map(m=>`<div style="border:1px solid #bbb;padding:10px;margin:6px 0;font-size:11px">${String(m.brand||'CARD').toUpperCase()} •••• ${m.last4||''} ${m.expMonth&&m.expYear?`· ${m.expMonth}/${m.expYear}`:''}</div>`).join(''):'';
+  }).catch(()=>{});
+
+  E('payWallet').onclick=async()=>{
+    const msg=E('paymentMessage'); const btn=E('payWallet'); btn.disabled=true; msg.textContent='Checking GRIM Wallet…';
+    try{
+      const payload={name:`${E('coFirst').value.trim()} ${E('coLast').value.trim()}`.trim(),phone:E('coPhone').value.trim(),address:[E('coAddress').value.trim(),E('coApartment').value.trim(),E('coCity').value.trim(),E('coState').value.trim(),E('coPostal').value.trim()].filter(Boolean).join(', '),country:E('coCountry').value||'NG',currency:'NGN',checkoutKey:'web_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,12),items:cart.map(i=>({id:Number(i.id),qty:Math.max(1,Number(i.qty||1)),size:String(i.size||'M')}))};
+      const r=await fetch('/api/v8/wallet/checkout',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const j=await r.json().catch(()=>({})); if(!r.ok)throw new Error(j.error||'Wallet checkout failed.');
+      msg.textContent=`Wallet payment complete. Order #${j.orderId}.`; cart=[]; saveCart(); draw();
+    }catch(e){msg.textContent=e.message||'Wallet checkout failed.';btn.disabled=false}
   };
 
   E('payTransfer').onclick=()=>{

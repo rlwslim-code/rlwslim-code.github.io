@@ -920,3 +920,7 @@ html[data-grim-theme="light"] #g6-disable-push{
   }
 }
 
+
+/* GRIM recovery: readable auth fields on light account modal */
+#auth input,#auth textarea,#auth select,#authModal input,#authModal textarea,#authModal select{color:#111!important;background:#fffaf3!important;-webkit-text-fill-color:#111!important;caret-color:#111!important;opacity:1!important}
+#auth input::placeholder,#authModal input::placeholder{color:#777!important;opacity:1!important}
