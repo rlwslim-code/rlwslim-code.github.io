@@ -22,6 +22,22 @@ body{background:var(--obsidian)}
 .g7-choice{display:grid;gap:10px;margin-top:20px}.g7-choice button,.g7-choice a,.g7-action{width:100%;box-sizing:border-box;padding:15px;border:1px solid #383838;background:#111;color:#fff;text-decoration:none;text-align:left;font-weight:800;letter-spacing:.06em}.g7-choice button:first-child{border-left:3px solid var(--abyss)}.g7-choice a{border-left:3px solid var(--rose)}.g7-choice span{display:block;margin-top:5px;color:#999;font-size:11px;font-weight:400;letter-spacing:0}
 .g7-chat-card{height:min(720px,88vh);display:flex;flex-direction:column;overflow:hidden}.g7-chat-head{padding-bottom:15px;border-bottom:1px solid #292929}.g7-back{border:0;background:transparent;color:var(--gold);padding:0 0 9px;font-weight:800;letter-spacing:.08em}.g7-messages{flex:1;overflow:auto;padding:16px 0;display:flex;flex-direction:column;gap:10px}.g7-msg{max-width:86%;padding:13px 15px;border-radius:16px;line-height:1.45}.g7-bot{align-self:flex-start;background:#171717;border:1px solid #2c2c2c}.g7-me{align-self:flex-end;background:linear-gradient(135deg,var(--bloodline),#4d0c18)}.g7-chat-form{display:flex;gap:8px;border-top:1px solid #292929;padding-top:14px}.g7-chat-form input{flex:1;min-width:0;background:#111;border:1px solid #333;color:#fff;padding:14px;border-radius:12px}.g7-chat-form button{background:var(--veil);color:#080808;border:0;border-radius:12px;padding:0 18px;font-weight:900}.g7-human{margin:2px 0 8px;border:1px solid var(--gold);background:#111;color:#fff;padding:11px 13px;font-weight:800;align-self:flex-start}
 .g7-reset input,.g7-reset form button,.g7-human-form input,.g7-human-form textarea,.g7-human-form button{width:100%;box-sizing:border-box;padding:13px;margin:6px 0;border:1px solid #333;background:#111;color:#fff}.g7-reset form button,.g7-human-form button{background:var(--veil);color:#080808;font-weight:900}.g7-status{font-size:12px;min-height:18px}
+
+.g7-wallet-card{width:min(560px,100%)}
+.g7-wallet-total{margin:22px 0;padding:20px;border:1px solid #303030;border-radius:16px;background:#101010}
+.g7-wallet-total small{display:block;margin-bottom:8px}.g7-wallet-total strong{display:block;font-size:30px}
+.g7-wallet-accounts{display:grid;gap:9px;margin:14px 0 22px}
+.g7-wallet-account{display:flex;justify-content:space-between;gap:12px;padding:13px 14px;border:1px solid #303030;border-radius:12px;background:#101010}
+.g7-wallet-account span:last-child{font-weight:800}
+.g7-wallet-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:16px 0 24px}
+.g7-wallet-actions button{padding:14px;border:1px solid var(--gold);background:#111;color:#fff;font-weight:900}
+.g7-wallet-actions button[disabled]{opacity:.45}
+.g7-wallet-transactions{border-top:1px solid #292929;padding-top:18px}
+.g7-wallet-tx{display:grid;grid-template-columns:1fr auto;gap:5px 12px;padding:12px 0;border-bottom:1px solid #242424}
+.g7-wallet-tx small{color:#888;letter-spacing:0}.g7-wallet-tx strong{grid-column:2;grid-row:1 / span 2}
+.g7-wallet-empty{padding:18px 0;color:#999;line-height:1.55}
+.g7-wallet-error{padding:14px;border:1px solid #5a2630;background:#210b10;color:#f1c7cf;border-radius:12px}
+
 @media(max-width:600px){.g7-walletbar{padding:9px 14px}.g7-wallet-market{display:none}.g7-card{padding:23px 18px}.g7-faq{margin-top:42px;padding:25px 18px}}
 `;
 document.head.append(css);
@@ -33,10 +49,42 @@ function mountTop(){
  const spectrum=document.createElement("div");spectrum.className="g7-spectrum";
  const bar=document.createElement("div");bar.className="g7-walletbar";bar.innerHTML='<div><b>GRIM WALLET</b> · <span class="g7-wallet-balance">SIGN IN</span> <span class="g7-wallet-market"></span></div><button type="button">OPEN WALLET</button>';
  const h=$("header"); if(h){h.insertAdjacentElement("afterend",bar);bar.insertAdjacentElement("beforebegin",spectrum)}else document.body.prepend(spectrum,bar);
- bar.querySelector("button").onclick=()=>{const s=$(".g6-settings-btn");if(s&&!s.hidden)s.click();else if(typeof openAuth==="function")openAuth();else $("#acct")?.click()};
+ bar.querySelector("button").onclick=openWallet;
  loadWallet();
 }
-async function loadWallet(){const c=currency();$(".g7-wallet-market")&&( $(".g7-wallet-market").textContent=c );try{const a=await api("/api/account");const real=a.wallet?.currency||c;$(".g7-wallet-balance").textContent=money(a.wallet?.balance||0,real)}catch{$(".g7-wallet-balance")&&($(".g7-wallet-balance").textContent="SIGN IN")}}
+
+function minorMoney(n,c){return money(Number(n||0)/100,c)}
+async function loadWallet(){
+ const market=currency();if($(".g7-wallet-market"))$(".g7-wallet-market").textContent=market;
+ try{
+  const w=await api("/api/v8/wallet"),accounts=Array.isArray(w.accounts)?w.accounts:[];
+  const preferred=accounts.find(x=>x.currency===market)||accounts[0];
+  $(".g7-wallet-balance").textContent=preferred?minorMoney(preferred.balance_minor,preferred.currency):money(0,market);
+ }catch{if($(".g7-wallet-balance"))$(".g7-wallet-balance").textContent="SIGN IN"}
+}
+
+async function openWallet(){
+ closeG7();
+ const m=document.createElement("div");m.className="g7-overlay";
+ m.innerHTML='<div class="g7-card g7-wallet-card"><button class="g7-x">×</button><small>GRIM WALLET</small><h2>YOUR WALLET</h2><div class="g7-wallet-body"><p>Loading your wallet…</p></div></div>';
+ document.body.append(m);m.querySelector(".g7-x").onclick=closeG7;
+ const body=m.querySelector(".g7-wallet-body");
+ try{
+  const w=await api("/api/v8/wallet"),accounts=Array.isArray(w.accounts)?w.accounts:[],txs=Array.isArray(w.transactions)?w.transactions:[];
+  const market=currency(),preferred=accounts.find(x=>x.currency===market)||accounts[0],shownCurrency=preferred?.currency||market,shownBalance=preferred?.balance_minor||0;
+  body.innerHTML=`<div class="g7-wallet-total"><small>AVAILABLE BALANCE · ${esc(shownCurrency)}</small><strong>${esc(minorMoney(shownBalance,shownCurrency))}</strong></div><div class="g7-wallet-accounts"></div><div class="g7-wallet-actions"><button type="button" disabled>FUND WALLET</button><button class="refresh" type="button">REFRESH</button></div><p class="g7-status">Secure funding will only credit verified payments. Balance changes cannot be made from the browser.</p><div class="g7-wallet-transactions"><small>RECENT ACTIVITY</small><div class="txlist"></div></div>`;
+  const al=body.querySelector(".g7-wallet-accounts");
+  if(accounts.length)accounts.forEach(a=>{const d=document.createElement("div");d.className="g7-wallet-account";d.innerHTML=`<span>${esc(a.currency)}${a.status&&a.status!=="active"?` · ${esc(a.status)}`:""}</span><span>${esc(minorMoney(a.balance_minor,a.currency))}</span>`;al.append(d)});
+  else al.innerHTML='<div class="g7-wallet-empty">Your GRIM Wallet is connected. No currency balance exists yet. Your first verified wallet funding will create the supported balance securely.</div>';
+  const tl=body.querySelector(".txlist");
+  if(!txs.length)tl.innerHTML='<div class="g7-wallet-empty">No wallet transactions yet.</div>';
+  else txs.slice(0,20).forEach(t=>{const d=document.createElement("div");d.className="g7-wallet-tx";const when=t.created_at?new Date(t.created_at).toLocaleString():"";d.innerHTML=`<span>${esc(t.description||t.transaction_type||"Wallet activity")}</span><small>${esc(when)}${t.status?` · ${esc(t.status)}`:""}</small><strong>${esc(minorMoney(t.amount_minor,t.currency))}</strong>`;tl.append(d)});
+  body.querySelector(".refresh").onclick=()=>{m.remove();openWallet()};loadWallet();
+ }catch(e){
+  if(/sign in/i.test(e.message||"")){body.innerHTML='<div class="g7-wallet-error">Sign in to open your GRIM Wallet.</div><div class="g7-choice"><button class="signin" type="button">SIGN IN</button></div>';body.querySelector(".signin").onclick=()=>{m.remove();if(typeof openAuth==="function")openAuth();else $("#acct")?.click()}}
+  else{body.innerHTML=`<div class="g7-wallet-error">${esc(e.message||"Unable to load GRIM Wallet.")}</div><div class="g7-choice"><button class="retry" type="button">TRY AGAIN</button></div>`;body.querySelector(".retry").onclick=()=>{m.remove();openWallet()}}
+ }
+}
 
 function loginMode(){
  const create=$("#aFirst")||$("#aLast")||$("#aPhone");
