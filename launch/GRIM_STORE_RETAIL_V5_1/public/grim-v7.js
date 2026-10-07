@@ -37,6 +37,7 @@ body{background:var(--obsidian)}
 .g7-wallet-tx small{color:#888;letter-spacing:0}.g7-wallet-tx strong{grid-column:2;grid-row:1 / span 2}
 .g7-wallet-empty{padding:18px 0;color:#999;line-height:1.55}
 .g7-wallet-error{padding:14px;border:1px solid #5a2630;background:#210b10;color:#f1c7cf;border-radius:12px}
+.g7-fund-form{display:grid;gap:10px;margin-top:18px}.g7-fund-amount{width:100%;box-sizing:border-box;padding:14px;border:1px solid #333;background:#111;color:#fff;border-radius:10px;font-size:16px}
 
 @media(max-width:600px){.g7-walletbar{padding:9px 14px}.g7-wallet-market{display:none}.g7-card{padding:23px 18px}.g7-faq{margin-top:42px;padding:25px 18px}}
 `;
@@ -72,19 +73,75 @@ async function openWallet(){
  try{
   const w=await api("/api/v8/wallet"),accounts=Array.isArray(w.accounts)?w.accounts:[],txs=Array.isArray(w.transactions)?w.transactions:[];
   const market=currency(),preferred=accounts.find(x=>x.currency===market)||accounts[0],shownCurrency=preferred?.currency||market,shownBalance=preferred?.balance_minor||0;
-  body.innerHTML=`<div class="g7-wallet-total"><small>AVAILABLE BALANCE · ${esc(shownCurrency)}</small><strong>${esc(minorMoney(shownBalance,shownCurrency))}</strong></div><div class="g7-wallet-accounts"></div><div class="g7-wallet-actions"><button type="button" disabled>FUND WALLET</button><button class="refresh" type="button">REFRESH</button></div><p class="g7-status">Secure funding will only credit verified payments. Balance changes cannot be made from the browser.</p><div class="g7-wallet-transactions"><small>RECENT ACTIVITY</small><div class="txlist"></div></div>`;
+  body.innerHTML=`<div class="g7-wallet-total"><small>AVAILABLE BALANCE · ${esc(shownCurrency)}</small><strong>${esc(minorMoney(shownBalance,shownCurrency))}</strong></div><div class="g7-wallet-accounts"></div><div class="g7-wallet-actions"><button class="fund" type="button">FUND WALLET</button><button class="refresh" type="button">REFRESH</button></div><p class="g7-status">Wallet funding is verified securely before your balance is credited.</p><div class="g7-wallet-transactions"><small>RECENT ACTIVITY</small><div class="txlist"></div></div>`;
   const al=body.querySelector(".g7-wallet-accounts");
   if(accounts.length)accounts.forEach(a=>{const d=document.createElement("div");d.className="g7-wallet-account";d.innerHTML=`<span>${esc(a.currency)}${a.status&&a.status!=="active"?` · ${esc(a.status)}`:""}</span><span>${esc(minorMoney(a.balance_minor,a.currency))}</span>`;al.append(d)});
   else al.innerHTML='<div class="g7-wallet-empty">Your GRIM Wallet is connected. No currency balance exists yet. Your first verified wallet funding will create the supported balance securely.</div>';
   const tl=body.querySelector(".txlist");
   if(!txs.length)tl.innerHTML='<div class="g7-wallet-empty">No wallet transactions yet.</div>';
   else txs.slice(0,20).forEach(t=>{const d=document.createElement("div");d.className="g7-wallet-tx";const when=t.created_at?new Date(t.created_at).toLocaleString():"";d.innerHTML=`<span>${esc(t.description||t.transaction_type||"Wallet activity")}</span><small>${esc(when)}${t.status?` · ${esc(t.status)}`:""}</small><strong>${esc(minorMoney(t.amount_minor,t.currency))}</strong>`;tl.append(d)});
+  body.querySelector(".fund").onclick=()=>openWalletFunding(m);
   body.querySelector(".refresh").onclick=()=>{m.remove();openWallet()};loadWallet();
  }catch(e){
   if(/sign in/i.test(e.message||"")){body.innerHTML='<div class="g7-wallet-error">Sign in to open your GRIM Wallet.</div><div class="g7-choice"><button class="signin" type="button">SIGN IN</button></div>';body.querySelector(".signin").onclick=()=>{m.remove();if(typeof openAuth==="function")openAuth();else $("#acct")?.click()}}
   else{body.innerHTML=`<div class="g7-wallet-error">${esc(e.message||"Unable to load GRIM Wallet.")}</div><div class="g7-choice"><button class="retry" type="button">TRY AGAIN</button></div>`;body.querySelector(".retry").onclick=()=>{m.remove();openWallet()}}
  }
 }
+
+function openWalletFunding(walletModal){
+ const body=walletModal.querySelector(".g7-wallet-body");
+ body.innerHTML=`<button class="g7-back" type="button">← BACK TO WALLET</button>
+  <small>SECURE FUNDING</small><h2>FUND WALLET</h2>
+  <p>Wallet funding is currently available in NGN. Paystack will handle the payment securely.</p>
+  <form class="g7-fund-form">
+   <input class="g7-fund-amount" type="number" inputmode="decimal" min="100" max="10000000" step="1" placeholder="Amount in NGN" required>
+   <button class="g7-action" type="submit">CONTINUE TO PAYSTACK</button>
+  </form><p class="g7-status"></p>`;
+ body.querySelector(".g7-back").onclick=()=>{walletModal.remove();openWallet()};
+ body.querySelector(".g7-fund-form").onsubmit=async e=>{
+  e.preventDefault();
+  const status=body.querySelector(".g7-status"),btn=e.target.querySelector("button");
+  const naira=Number(body.querySelector(".g7-fund-amount").value);
+  if(!Number.isFinite(naira)||naira<100||naira>10000000){status.textContent="Enter an amount between ₦100 and ₦10,000,000.";return}
+  const amountMinor=Math.round(naira*100);
+  btn.disabled=true;status.textContent="Preparing secure payment…";
+  try{
+   const r=await api("/api/v8/wallet/fund/initialize",{method:"POST",body:JSON.stringify({amountMinor,currency:"NGN"})});
+   if(!r.authorizationUrl)throw new Error("Secure checkout could not be opened.");
+   sessionStorage.setItem("grimWalletFundingReference",r.reference||"");
+   location.assign(r.authorizationUrl);
+  }catch(x){btn.disabled=false;status.textContent=x.message||"Unable to start wallet funding."}
+ };
+}
+
+async function verifyWalletReturn(){
+ const u=new URL(location.href),flag=u.searchParams.get("grim-wallet");
+ if(flag==="cancel"){
+  u.searchParams.delete("grim-wallet");history.replaceState({},"",u.pathname+u.search+u.hash);
+  return;
+ }
+ if(flag!=="return")return;
+ const reference=u.searchParams.get("reference")||sessionStorage.getItem("grimWalletFundingReference")||"";
+ u.searchParams.delete("grim-wallet");u.searchParams.delete("reference");
+ history.replaceState({},"",u.pathname+u.search+u.hash);
+ if(!reference)return;
+ closeG7();
+ const m=document.createElement("div");m.className="g7-overlay";
+ m.innerHTML='<div class="g7-card"><small>GRIM WALLET</small><h2>VERIFYING PAYMENT</h2><p class="g7-status">Confirming your payment securely…</p></div>';
+ document.body.append(m);
+ try{
+  const r=await api("/api/v8/wallet/fund/verify",{method:"POST",body:JSON.stringify({reference})});
+  sessionStorage.removeItem("grimWalletFundingReference");
+  m.querySelector("h2").textContent="WALLET FUNDED";
+  m.querySelector(".g7-status").textContent=`${money(Number(r.amountMinor||0)/100,r.currency||"NGN")} has been added to your GRIM Wallet.`;
+  setTimeout(()=>{m.remove();openWallet()},1200);
+ }catch(x){
+  m.querySelector("h2").textContent="VERIFICATION NEEDED";
+  m.querySelector(".g7-status").textContent=x.message||"We could not verify this payment. Do not pay again; contact GRIM Customer Care with your payment reference.";
+  const b=document.createElement("button");b.className="g7-action";b.type="button";b.textContent="CLOSE";b.onclick=()=>m.remove();m.querySelector(".g7-card").append(b);
+ }
+}
+
 
 function loginMode(){
  const create=$("#aFirst")||$("#aLast")||$("#aPhone");
@@ -145,6 +202,6 @@ async function humanRequest(msgs,say){
 async function faq(){try{const rows=await api("/api/faqs");$(".g7-faq")?.remove();const s=document.createElement("section");s.className="g7-faq";s.innerHTML='<small>THE HOUSE ANSWERS</small><h2>NEED TO KNOW</h2><div class="g7-faq-list"></div>';const l=s.querySelector(".g7-faq-list");(rows||[]).forEach((x,i)=>{const d=document.createElement("details");d.dataset.extra=i>1?"1":"0";if(i>1)d.hidden=true;d.innerHTML=`<summary>${esc(x.q)}</summary><p>${esc(x.a)}</p>`;l.append(d)});if((rows||[]).length>2){const b=document.createElement("button");b.className="g7-more";b.textContent="VIEW ALL FAQs";b.onclick=()=>{const ex=$$('details[data-extra="1"]',l),show=ex.some(x=>x.hidden);ex.forEach(x=>x.hidden=!show);b.textContent=show?"SHOW LESS":"VIEW ALL FAQs"};s.append(b)}const f=$("footer")||$(".site-footer");f?f.insertAdjacentElement("beforebegin",s):document.body.append(s)}catch{}}
 
 function wireCare(){const c=$(".care-fab");if(c){c.removeAttribute("onclick");c.onclick=careChooser}$$("a,button").forEach(x=>{if((x.textContent||"").trim().toUpperCase()==="CUSTOMER CARE"&&!x.closest(".g7-card")){x.addEventListener("click",e=>{e.preventDefault();careChooser()})}})}
-function boot(){mountTop();watchAuth();wireCare();faq()}
+function boot(){mountTop();watchAuth();wireCare();faq();verifyWalletReturn()}
 document.readyState==="loading"?document.addEventListener("DOMContentLoaded",boot):boot();
 })();
