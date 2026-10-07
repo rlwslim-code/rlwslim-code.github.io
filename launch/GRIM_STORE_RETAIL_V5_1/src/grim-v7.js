@@ -8,8 +8,9 @@ export function installGrimV7(app,{supabase}){
  const otp=()=>String(crypto.randomInt(0,1000000)).padStart(6,"0");
  const passwordOK=p=>typeof p==="string"&&p.length>=8&&/[A-Z]/.test(p)&&/[a-z]/.test(p)&&/[0-9]/.test(p)&&/[^A-Za-z0-9]/.test(p);
  async function sendEmail(to,subject,html){
-  if(!process.env.RESEND_API_KEY||!process.env.TWO_FACTOR_FROM_EMAIL) throw new Error("Email delivery is not configured.");
-  const r=await fetch("https://api.resend.com/emails",{method:"POST",headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,"Content-Type":"application/json"},body:JSON.stringify({from:process.env.TWO_FACTOR_FROM_EMAIL,to:Array.isArray(to)?to:[to],subject,html})});
+  if(!process.env.RESEND_API_KEY) throw new Error("Email delivery is not configured.");
+  const from=process.env.TWO_FACTOR_FROM_EMAIL||process.env.RESEND_FROM_EMAIL||"GRIM <noreply@grimwear.store>";
+  const r=await fetch("https://api.resend.com/emails",{method:"POST",headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,"Content-Type":"application/json"},body:JSON.stringify({from,to:Array.isArray(to)?to:[to],subject,html})});
   if(!r.ok){const detail=await r.text().catch(()=>"");console.error("[GRIM email delivery]",r.status,detail.slice(0,1000));throw new Error("Unable to send email.");}
  }
  app.post("/api/auth/forgot-password",async(req,res)=>{

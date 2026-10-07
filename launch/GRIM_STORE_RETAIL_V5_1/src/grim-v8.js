@@ -151,7 +151,7 @@ export function installGrimV8(app, { supabase, priceCart, notifyOrder }) {
         phone,
         address,
         total,
-        status: "payment_pending",
+        status: "new",
         items: cleanItems,
         country: country || "NG",
         currency: "NGN"
@@ -177,7 +177,7 @@ export function installGrimV8(app, { supabase, priceCart, notifyOrder }) {
 
       if (debitErr) {
         // No wallet debit occurred if the RPC failed; remove the pending order.
-        await supabase.from("orders").delete().eq("id", pendingOrder.id).eq("status", "payment_pending");
+        await supabase.from("orders").delete().eq("id", pendingOrder.id);
 
         const msg = String(debitErr.message || "").toLowerCase();
         if (msg.includes("insufficient")) {
