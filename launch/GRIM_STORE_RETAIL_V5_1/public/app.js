@@ -450,6 +450,11 @@ function buildGrimCheckout(){
         🏦 PAY BY BANK TRANSFER
       </button>
 
+      <button class="dark full" id="payWallet"
+        type="button" style="margin-top:12px">
+        🖤 PAY WITH GRIM WALLET
+      </button>
+
       <button type="button" id="backDelivery"
         style="margin-top:18px">
         ← BACK TO DELIVERY
@@ -668,6 +673,112 @@ if (!finalCity && finalPostcode) {
       'Preparing secure bank transfer…';
     startGrimPayment('bank_transfer');
   };
+
+  E('payWallet').onclick=()=>{
+    startGrimWalletCheckout();
+  };
+}
+
+
+async function startGrimWalletCheckout(){
+  const message=E('paymentMessage');
+  const button=E('payWallet');
+
+  if(!cart.length){
+    if(message)message.textContent='Your bag is empty.';
+    return;
+  }
+
+  if((market?.currency||'NGN')!=='NGN'){
+    if(message)message.textContent=
+      'GRIM Wallet checkout currently supports NGN orders only. Change your payment currency to NGN or use card.';
+    return;
+  }
+
+  const firstName=E('coFirst')?.value.trim()||'';
+  const lastName=E('coLast')?.value.trim()||'';
+  const phone=E('coPhone')?.value.trim()||'';
+  const address=E('coAddress')?.value.trim()||'';
+  const apartment=E('coApartment')?.value.trim()||'';
+  const city=E('coCity')?.value.trim()||'';
+  const state=E('coState')?.value.trim()||'';
+  const postal=E('coPostal')?.value.trim()||'';
+  const instructions=E('coInstructions')?.value.trim()||'';
+  const country=E('coCountry')?.value||'NG';
+
+  if(!firstName||!lastName||!phone||!address||!city||!state){
+    if(message)message.textContent='Complete your contact and delivery information first.';
+    return;
+  }
+
+  const fullAddress=[
+    address,
+    apartment,
+    city,
+    state,
+    postal,
+    instructions ? `Delivery instructions: ${instructions}` : ''
+  ].filter(Boolean).join(', ');
+
+  let checkoutKey='';
+  try{
+    checkoutKey=crypto.randomUUID();
+  }catch(_){
+    checkoutKey='grim_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+  }
+
+  const payload={
+    name:`${firstName} ${lastName}`.trim(),
+    phone,
+    address:fullAddress,
+    country,
+    currency:'NGN',
+    checkoutKey,
+    items:cart.map(item=>({
+      id:Number(item.id),
+      qty:Math.max(1,Number(item.qty||1)),
+      size:String(item.size||'M')
+    }))
+  };
+
+  if(button)button.disabled=true;
+  if(message)message.textContent='Checking GRIM Wallet and securing your order…';
+
+  try{
+    const response=await fetch('/api/v8/wallet/checkout',{
+      method:'POST',
+      credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+
+    let result={};
+    try{result=await response.json();}catch(_){}
+
+    if(!response.ok||!result?.ok){
+      if(message)message.textContent=result?.error||'Wallet payment could not be completed.';
+      return;
+    }
+
+    if(message){
+      message.textContent=
+        `GRIM Wallet payment complete ✓ Order #${result.orderId}`;
+    }
+
+    cart=[];
+    save();
+    draw();
+
+    try{
+      window.dispatchEvent(new CustomEvent('grim:wallet-updated'));
+    }catch(_){}
+
+  }catch(error){
+    console.error('GRIM Wallet checkout:',error);
+    if(message)message.textContent='Unable to connect to GRIM Wallet. Please try again.';
+  }finally{
+    if(button)button.disabled=false;
+  }
 }
 
 function startGrimPayment(method) {
