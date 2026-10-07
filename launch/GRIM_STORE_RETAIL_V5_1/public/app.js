@@ -682,14 +682,18 @@ if (!finalCity && finalPostcode) {
     const b=j?.shopping?.checkoutPreferences?.savedBillingAddress;if(!b)return;savedBilling=b;
     const box=E('savedBillingBox');if(box)box.innerHTML=`<div style="border:1px solid #bbb;padding:11px;margin:6px 0;font-size:11px"><b>SAVED BILLING ADDRESS</b><br>${[b.address,b.city,b.state,b.postal,b.country].filter(Boolean).join(', ')}<div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap"><button type="button" id="useSavedBilling">USE FOR BILLING</button><button type="button" id="useSavedDelivery">USE FOR DELIVERY</button></div></div>`;
     const fillBilling=()=>{
-      const same=E('coBillingSame'),fields=E('coBillingFields');
-      if(same){same.checked=false;same.removeAttribute('checked')}
-      if(fields){fields.hidden=false;fields.style.setProperty('display','block','important')}
+      // A saved billing address is also a reusable customer address.
+      // Put it into the main address form at the TOP, which is the customer's expected flow.
       const set=(id,v)=>{const el=E(id);if(el){el.value=v||'';el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))}};
-      set('coBillingAddress',b.address);set('coBillingCity',b.city);set('coBillingState',b.state);set('coBillingPostal',b.postal);
-      const keep=()=>{if(same)same.checked=false;if(fields){fields.hidden=false;fields.style.setProperty('display','block','important')}};
-      requestAnimationFrame(keep);setTimeout(keep,80);setTimeout(keep,300);
-      const card=E('savedBillingBox');if(card)card.innerHTML='<div style="border:1px solid #bbb;padding:11px;margin:6px 0;font-size:11px"><b>SAVED BILLING ADDRESS APPLIED ✓</b><br><span style="opacity:.75">Your saved address is filled below.</span></div>';
+      set('coAddress',b.address);set('coCity',b.city);set('coState',b.state);set('coPostal',b.postal);
+      const countryEl=E('coCountry');
+      if(countryEl&&b.country&&[...countryEl.options].some(o=>o.value===b.country)){countryEl.value=b.country;countryEl.dispatchEvent(new Event('change',{bubbles:true}))}
+      const same=E('coBillingSame'),fields=E('coBillingFields');
+      if(same){same.checked=true;same.setAttribute('checked','checked');same.dispatchEvent(new Event('change',{bubbles:true}))}
+      if(fields){fields.hidden=true;fields.style.display='none'}
+      paymentAvailability();
+      const card=E('savedBillingBox');if(card)card.innerHTML='<div style="border:1px solid #bbb;padding:11px;margin:6px 0;font-size:11px"><b>SAVED ADDRESS APPLIED ✓</b><br><span style="opacity:.75">Your saved address is filled into the main address form above.</span></div>';
+      E('coAddress')?.scrollIntoView({behavior:'smooth',block:'center'});
     };
     E('useSavedBilling')&&(E('useSavedBilling').onclick=fillBilling);E('useSavedDelivery')&&(E('useSavedDelivery').onclick=()=>{E('coAddress').value=b.address||'';E('coCity').value=b.city||'';E('coState').value=b.state||'';E('coPostal').value=b.postal||'';if(b.country&&[...E('coCountry').options].some(o=>o.value===b.country))E('coCountry').value=b.country;paymentAvailability()});
   }).catch(()=>{});
