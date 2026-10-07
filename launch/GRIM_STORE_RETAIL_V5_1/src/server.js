@@ -826,7 +826,7 @@ app.post("/api/newsletter", async (req, res) => {
  * Existing Paystack implementation. GRIM Control observes the verify response
  * and creates payment activity / notifications without changing payment logic.
  */
-installGrimPayments(app, { productById });
+installGrimPayments(app, { productById, supabase: grimSupabase });
 
 app.use(
   express.static(publicDir, {
