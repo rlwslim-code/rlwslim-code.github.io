@@ -781,6 +781,12 @@
     .g6-status:not(:empty){
       color:#c8a34b
     }
+    #g6-save-privacy{display:block;width:100%;margin:14px 0 22px}
+    #g6-account-action-status{margin-top:14px}
+    #g6-deactivate-account,#g6-delete-account,#g6-logout{display:block;width:100%;box-sizing:border-box;margin-top:12px;padding:14px 16px;border-radius:12px;letter-spacing:.08em;font-weight:800;text-align:center}
+    #g6-deactivate-account{border:1px solid #6f5520;background:#17130b;color:#f0d895}
+    #g6-delete-account{border:1px solid #7b0d1e;background:#21090e;color:#ffc7cf}
+    #g6-logout{border:1px solid #454545;background:#151515;color:#f3efe7}
 
     .g6-settings-btn{
       border-color:rgba(200,163,75,.55);

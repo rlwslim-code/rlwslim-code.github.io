@@ -1,12 +1,12 @@
 const MARKETS={NG:{name:'Nigeria',currency:'NGN',locale:'en-NG',rate:1},US:{name:'United States',currency:'USD',locale:'en-US',rate:0.00067},GB:{name:'United Kingdom',currency:'GBP',locale:'en-GB',rate:0.00050},CA:{name:'Canada',currency:'CAD',locale:'en-CA',rate:0.00091},AU:{name:'Australia',currency:'AUD',locale:'en-AU',rate:0.00102},DE:{name:'Germany',currency:'EUR',locale:'de-DE',rate:0.00057},FR:{name:'France',currency:'EUR',locale:'fr-FR',rate:0.00057},IT:{name:'Italy',currency:'EUR',locale:'it-IT',rate:0.00057},ES:{name:'Spain',currency:'EUR',locale:'es-ES',rate:0.00057},NL:{name:'Netherlands',currency:'EUR',locale:'nl-NL',rate:0.00057},GH:{name:'Ghana',currency:'GHS',locale:'en-GH',rate:0.0073},ZA:{name:'South Africa',currency:'ZAR',locale:'en-ZA',rate:0.0114},KE:{name:'Kenya',currency:'KES',locale:'en-KE',rate:0.086},AE:{name:'United Arab Emirates',currency:'AED',locale:'en-AE',rate:0.00246},JP:{name:'Japan',currency:'JPY',locale:'ja-JP',rate:0.100}};
 const CURRENCY_RATES={NGN:1,USD:.00067,GBP:.00050,EUR:.00057,CAD:.00091,AUD:.00102,GHS:.0073,ZAR:.0114,KES:.086,AED:.00246,JPY:.100};
-let market=JSON.parse(localStorage.getItem('grimMarket')||'null')||{country:'NG',currency:'NGN'};
-function money(n){let c=market.currency||'NGN',v=Number(n)*(CURRENCY_RATES[c]||1),loc=(MARKETS[market.country]||MARKETS.NG).locale;return new Intl.NumberFormat(loc,{style:'currency',currency:c,maximumFractionDigits:c==='JPY'?0:2}).format(v)}
+let market=JSON.parse(localStorage.getItem('grimMarket')||'null')||{country:'NG',currency:'NGN'}; market.currency='NGN';
+function money(n){return new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN',maximumFractionDigits:0}).format(Number(n)||0)}
 function openMarket(){fillMarket();E('marketModal')?.classList.add('open')}function closeMarket(){E('marketModal')?.classList.remove('open')}
-function fillMarket(){let c=E('marketCountry'),u=E('marketCurrency');if(!c||!u)return;c.innerHTML=Object.entries(MARKETS).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('');u.innerHTML=Object.keys(CURRENCY_RATES).map(k=>`<option>${k}</option>`).join('');c.value=market.country;u.value=market.currency;c.onchange=()=>{u.value=MARKETS[c.value].currency}}
-function saveMarket(){market={country:E('marketCountry').value,currency:E('marketCurrency').value};localStorage.setItem('grimMarket',JSON.stringify(market));updateMarketUI();render();draw();closeMarket()}
-function updateMarketUI(){let x=MARKETS[market.country]||MARKETS.NG;if(E('marketLabel'))E('marketLabel').textContent=`${x.name} · ${market.currency}`}
-async function detectMarket(){if(localStorage.getItem('grimMarket')){updateMarketUI();return}try{let r=await fetch('/api/market',{credentials:'include',cache:'no-store'}),j=await r.json();if(j.country&&MARKETS[j.country])market={country:j.country,currency:MARKETS[j.country].currency};localStorage.setItem('grimMarket',JSON.stringify(market))}catch(e){}updateMarketUI()}
+function fillMarket(){let c=E('marketCountry'),u=E('marketCurrency');if(!c||!u)return;c.innerHTML=Object.entries(MARKETS).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('');u.innerHTML='<option value="NGN">NGN — Nigerian Naira</option>';c.value=market.country||'NG';u.value='NGN';u.disabled=true}
+function saveMarket(){market={country:E('marketCountry').value,currency:'NGN'};localStorage.setItem('grimMarket',JSON.stringify(market));updateMarketUI();render();draw();closeMarket()}
+function updateMarketUI(){let x=MARKETS[market.country]||MARKETS.NG;market.currency='NGN';if(E('marketLabel'))E('marketLabel').textContent=`${x.name} · NGN`}
+async function detectMarket(){try{let saved=JSON.parse(localStorage.getItem('grimMarket')||'null');if(saved?.country&&MARKETS[saved.country])market={country:saved.country,currency:'NGN'};else{let r=await fetch('/api/market',{cache:'no-store'}),j=await r.json();market={country:j.country&&MARKETS[j.country]?j.country:'NG',currency:'NGN'}}}catch(e){market={country:'NG',currency:'NGN'}}localStorage.setItem('grimMarket',JSON.stringify(market));updateMarketUI()}
 
 const FALLBACK_CATALOG=[{"id":1,"name":"Rose Reaper","type":"Hoodie","price":28000,"color":"Pink"},{"id":2,"name":"Veil","type":"Hoodie","price":28000,"color":"White"},{"id":3,"name":"Abyss","type":"Hoodie","price":28000,"color":"Blue"},{"id":4,"name":"Eclipse Gold","type":"Hoodie","price":28000,"color":"Yellow"},{"id":5,"name":"Rose Reaper","type":"Hoodie","price":28000,"color":"Pink"},{"id":6,"name":"Eclipse Gold","type":"Armless","price":15000,"color":"Yellow"},{"id":7,"name":"Bloodline","type":"Hoodie","price":28000,"color":"Red"},{"id":8,"name":"Obsidian","type":"Armless","price":15000,"color":"Black"},{"id":10,"name":"Obsidian / Veil","type":"Tee","price":18000,"color":"Mixed"},{"id":11,"name":"Veil / Abyss","type":"Hoodie","price":28000,"color":"Mixed"},{"id":12,"name":"Veil","type":"Tee","price":18000,"color":"White"},{"id":13,"name":"Veil / Abyss / Obsidian","type":"Armless","price":15000,"color":"Mixed"},{"id":14,"name":"Void Violet","type":"Hoodie","price":28000,"color":"Purple"},{"id":15,"name":"Veil / Obsidian","type":"Hoodie","price":28000,"color":"Mixed"},{"id":16,"name":"Obsidian / Veil","type":"Hoodie","price":28000,"color":"Mixed"},{"id":17,"name":"Rose Reaper","type":"Hoodie","price":28000,"color":"Pink"},{"id":18,"name":"Obsidian","type":"Hoodie","price":28000,"color":"Black"},{"id":19,"name":"Abyss","type":"Hoodie","price":28000,"color":"Blue"},{"id":20,"name":"Void Violet","type":"Hoodie","price":28000,"color":"Purple"},{"id":21,"name":"Rose Reaper","type":"Tee","price":18000,"color":"Pink"},{"id":22,"name":"Veil","type":"Hoodie","price":28000,"color":"White"},{"id":23,"name":"Obsidian","type":"Tee","price":18000,"color":"Black"},{"id":24,"name":"Veil / Obsidian","type":"Complete GRIM Outfit","price":90000,"color":"Mixed"},{"id":25,"name":"Obsidian","type":"Hoodie","price":28000,"color":"Black"},{"id":26,"name":"Rose Reaper","type":"Hoodie","price":28000,"color":"Pink"}];
 let catalog=FALLBACK_CATALOG.slice(),mode='login',shopPage=1;
@@ -372,11 +372,6 @@ if(E('newsForm'))E('newsForm').onsubmit=async e=>{e.preventDefault();let r=await
 
 function scrollToShop(){document.querySelector('.shop')?.scrollIntoView({behavior:'smooth',block:'start'})}
  // ===== GRIM CHECKOUT V2 =====
-const GRIM_CHECKOUT_INFO_KEY='grimCheckoutInfoV1';
-function readSavedCheckoutInfo(){try{return JSON.parse(localStorage.getItem(GRIM_CHECKOUT_INFO_KEY)||'{}')||{}}catch(_){return{}}}
-function toggleBillingFields(){const b=E('billingFields');if(b)b.style.display=E('coBillingSame')?.checked===false?'block':'none'}
-function saveCheckoutInfo(){if(!E('coSaveInfo')?.checked)return;const v=id=>E(id)?.value?.trim()||'';localStorage.setItem(GRIM_CHECKOUT_INFO_KEY,JSON.stringify({country:v('coCountry')||market.country,firstName:v('coFirst'),lastName:v('coLast'),phone:v('coPhone'),address:v('coAddress'),apartment:v('coApartment'),city:v('coCity'),state:v('coState'),postal:v('coPostal'),billingSame:E('coBillingSame')?.checked!==false,billingAddress:v('coBillingAddress'),billingCity:v('coBillingCity'),billingState:v('coBillingState'),billingPostal:v('coBillingPostal')}))}
-function fillSavedCheckoutInfo(){const s=readSavedCheckoutInfo(),set=(id,v)=>{if(E(id)&&v)E(id).value=v};set('coCountry',s.country||market.country);set('coFirst',s.firstName);set('coLast',s.lastName);set('coPhone',s.phone);set('coAddress',s.address);set('coApartment',s.apartment);set('coCity',s.city);set('coState',s.state);set('coPostal',s.postal);if(E('coBillingSame'))E('coBillingSame').checked=s.billingSame!==false;set('coBillingAddress',s.billingAddress);set('coBillingCity',s.billingCity);set('coBillingState',s.billingState);set('coBillingPostal',s.billingPostal);if(E('coSaveInfo'))E('coSaveInfo').checked=Object.keys(s).length>0;toggleBillingFields()}
 function buildGrimCheckout(){
   const box=document.querySelector('#checkout .checkout-box');
   if(!box)return;
@@ -435,15 +430,6 @@ function buildGrimCheckout(){
         <small>Delivery cost will be calculated for your destination.</small>
       </label>
 
-      <div style="margin:12px 0">
-        <label style="display:flex;gap:8px;align-items:center"><input id="coSaveInfo" type="checkbox"> SAVE MY DELIVERY & BILLING INFO</label>
-        <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input id="coBillingSame" type="checkbox" checked> BILLING ADDRESS SAME AS DELIVERY</label>
-        <div id="billingFields" style="display:none;margin-top:10px">
-          <input id="coBillingAddress" placeholder="Billing street address">
-          <div class="checkout-grid"><input id="coBillingCity" placeholder="Billing city"><input id="coBillingState" placeholder="Billing state / province"></div>
-          <input id="coBillingPostal" placeholder="Billing postal code">
-        </div>
-      </div>
       <button class="dark full" type="submit">
         CONTINUE TO PAYMENT
       </button>
@@ -455,7 +441,6 @@ function buildGrimCheckout(){
       <h3>PAYMENT</h3>
       <p class="muted">Choose how you would like to pay.</p>
 
-      <label style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><input id="coSaveCard" type="checkbox"> SAVE THIS CARD SECURELY FOR FUTURE CHECKOUT</label>
       <button class="dark full" id="payCard" type="button">
         💳 PAY WITH CARD
       </button>
@@ -463,11 +448,6 @@ function buildGrimCheckout(){
       <button class="dark full" id="payTransfer"
         type="button" style="margin-top:12px">
         🏦 PAY BY BANK TRANSFER
-      </button>
-
-      <button class="dark full" id="payWallet"
-        type="button" style="margin-top:12px">
-        🖤 PAY WITH GRIM WALLET
       </button>
 
       <button type="button" id="backDelivery"
@@ -658,16 +638,12 @@ if (!finalCity && finalPostcode) {
     }
   }
 
-  fillSavedCheckoutInfo();
-    E('coBillingSame')?.addEventListener('change',toggleBillingFields);
-    E('coSaveInfo')?.addEventListener('change',()=>{if(E('coSaveInfo').checked)saveCheckoutInfo()});
-    paymentAvailability();
+  paymentAvailability();
   country.addEventListener('change',paymentAvailability);
 
   E('grimCheckoutForm').onsubmit=e=>{
     e.preventDefault();
 
-    saveCheckoutInfo();
     E('grimCheckoutForm').style.display='none';
     E('paymentStep').style.display='block';
 
@@ -692,112 +668,6 @@ if (!finalCity && finalPostcode) {
       'Preparing secure bank transfer…';
     startGrimPayment('bank_transfer');
   };
-
-  E('payWallet').onclick=()=>{
-    startGrimWalletCheckout();
-  };
-}
-
-
-async function startGrimWalletCheckout(){
-  const message=E('paymentMessage');
-  const button=E('payWallet');
-
-  if(!cart.length){
-    if(message)message.textContent='Your bag is empty.';
-    return;
-  }
-
-  if((market?.currency||'NGN')!=='NGN'){
-    if(message)message.textContent=
-      'GRIM Wallet checkout currently supports NGN orders only. Change your payment currency to NGN or use card.';
-    return;
-  }
-
-  const firstName=E('coFirst')?.value.trim()||'';
-  const lastName=E('coLast')?.value.trim()||'';
-  const phone=E('coPhone')?.value.trim()||'';
-  const address=E('coAddress')?.value.trim()||'';
-  const apartment=E('coApartment')?.value.trim()||'';
-  const city=E('coCity')?.value.trim()||'';
-  const state=E('coState')?.value.trim()||'';
-  const postal=E('coPostal')?.value.trim()||'';
-  const instructions=E('coInstructions')?.value.trim()||'';
-  const country=E('coCountry')?.value||'NG';
-
-  if(!firstName||!lastName||!phone||!address||!city||!state){
-    if(message)message.textContent='Complete your contact and delivery information first.';
-    return;
-  }
-
-  const fullAddress=[
-    address,
-    apartment,
-    city,
-    state,
-    postal,
-    instructions ? `Delivery instructions: ${instructions}` : ''
-  ].filter(Boolean).join(', ');
-
-  let checkoutKey='';
-  try{
-    checkoutKey=crypto.randomUUID();
-  }catch(_){
-    checkoutKey='grim_'+Date.now()+'_'+Math.random().toString(36).slice(2);
-  }
-
-  const payload={
-    name:`${firstName} ${lastName}`.trim(),
-    phone,
-    address:fullAddress,
-    country,
-    currency:'NGN',
-    checkoutKey,
-    items:cart.map(item=>({
-      id:Number(item.id),
-      qty:Math.max(1,Number(item.qty||1)),
-      size:String(item.size||'M')
-    }))
-  };
-
-  if(button)button.disabled=true;
-  if(message)message.textContent='Checking GRIM Wallet and securing your order…';
-
-  try{
-    const response=await fetch('/api/v8/wallet/checkout',{
-      method:'POST',
-      credentials:'include',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(payload)
-    });
-
-    let result={};
-    try{result=await response.json();}catch(_){}
-
-    if(!response.ok||!result?.ok){
-      if(message)message.textContent=result?.error||'Wallet payment could not be completed.';
-      return;
-    }
-
-    if(message){
-      message.textContent=
-        `GRIM Wallet payment complete ✓ Order #${result.orderId}`;
-    }
-
-    cart=[];
-    save();
-    draw();
-
-    try{
-      window.dispatchEvent(new CustomEvent('grim:wallet-updated'));
-    }catch(_){}
-
-  }catch(error){
-    console.error('GRIM Wallet checkout:',error);
-    if(message)message.textContent='Unable to connect to GRIM Wallet. Please try again.';
-  }finally{
-    if(button)button.disabled=false;
-  }
 }
 
 function startGrimPayment(method) {
