@@ -13,7 +13,7 @@ import { OAuth2Client } from "google-auth-library";
  Install this BEFORE the legacy /api/register, /api/login and /api/auth/google
  routes. The middleware intercepts those paths so old SQLite auth is bypassed.
 */
-export function installGrimV6(app, { supabase }) {
+export function installGrimV6(app, { supabase, persistentAuth } = {}) {
   const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || undefined);
   const PAYSTACK = "https://api.paystack.co";
 
@@ -23,33 +23,75 @@ export function installGrimV6(app, { supabase }) {
   const sha256 = v => crypto.createHash("sha256").update(String(v)).digest("hex");
   const newOtp = () => String(crypto.randomInt(0, 1000000)).padStart(6, "0");
 
-  async function sendTwoFactorCode(email, code) {
-    // Uses Resend's HTTPS API without adding another npm dependency.
-    // Configure RESEND_API_KEY and TWO_FACTOR_FROM_EMAIL in Vercel.
-    if (!process.env.RESEND_API_KEY || !process.env.TWO_FACTOR_FROM_EMAIL)
-      throw new Error("2FA email delivery is not configured.");
+  const authSecret = String(process.env.SESSION_SECRET || "");
+  const b64u = v => Buffer.from(String(v)).toString("base64url");
+  const unb64u = v => Buffer.from(String(v), "base64url").toString();
+  const sign = v => {
+    if (!authSecret) throw new Error("SESSION_SECRET is required for secure account challenges.");
+    return crypto.createHmac("sha256", authSecret).update(String(v)).digest("base64url");
+  };
+  const makeToken = payload => {
+    const body = b64u(JSON.stringify(payload));
+    return `${body}.${sign(body)}`;
+  };
+  const readToken = token => {
+    try {
+      const [body, sig] = String(token || "").split(".");
+      if (!body || !sig) return null;
+      const expected = sign(body);
+      const a = Buffer.from(sig), b = Buffer.from(expected);
+      if (a.length !== b.length || !crypto.timingSafeEqual(a,b)) return null;
+      const payload = JSON.parse(unb64u(body));
+      if (!payload?.exp || Date.now() > Number(payload.exp)) return null;
+      return payload;
+    } catch { return null; }
+  };
+  const cookieValue = (req, name) => {
+    const raw = String(req.headers?.cookie || "");
+    const hit = raw.split(";").map(x=>x.trim()).find(x=>x.startsWith(`${name}=`));
+    return hit ? decodeURIComponent(hit.slice(name.length+1)) : "";
+  };
+  const secureCookie = () => process.env.NODE_ENV === "production" || !!process.env.VERCEL;
+  const setChallengeCookie = (res, name, value, maxAge) => res.cookie(name, value, {
+    httpOnly:true, secure:secureCookie(), sameSite:"lax", path:"/", maxAge
+  });
+  const clearChallengeCookie = (res, name) => res.clearCookie(name, {
+    httpOnly:true, secure:secureCookie(), sameSite:"lax", path:"/"
+  });
 
+  async function sendGrimEmail({to, subject, heading, text, code}) {
+    if (!process.env.RESEND_API_KEY || !process.env.TWO_FACTOR_FROM_EMAIL)
+      throw new Error("GRIM email delivery is not configured.");
     const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        from: process.env.TWO_FACTOR_FROM_EMAIL,
-        to: [email],
-        subject: "Your GRIM sign-in code",
-        html: `<div style="background:#090909;color:#eee;padding:32px;font-family:Arial,sans-serif">
+      method:"POST",
+      headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,"Content-Type":"application/json"},
+      body:JSON.stringify({
+        from:process.env.TWO_FACTOR_FROM_EMAIL,
+        to:[to],
+        subject,
+        html:`<div style="background:#090909;color:#eee;padding:32px;font-family:Arial,sans-serif">
           <div style="letter-spacing:3px;font-weight:700">GRIM</div>
-          <h2>Verify your sign-in</h2>
-          <p>Use this one-time code to finish signing in:</p>
+          <h2>${heading}</h2>
+          <p>${text}</p>
           <div style="font-size:34px;letter-spacing:8px;font-weight:800">${code}</div>
-          <p style="color:#aaa">This code expires in 10 minutes. If you did not try to sign in, you can ignore this email.</p>
+          <p style="color:#aaa">This code expires in 10 minutes. If you did not request this, you can ignore this email.</p>
         </div>`
       })
     });
-    if (!r.ok) throw new Error("Unable to send verification email.");
+    if(!r.ok){
+      const body=await r.json().catch(()=>({}));
+      console.error("[GRIM email]",r.status,body);
+      throw new Error("Unable to send GRIM email.");
+    }
   }
+  const sendTwoFactorCode=(email,code)=>sendGrimEmail({
+    to:email,subject:"Your GRIM sign-in code",heading:"Verify your sign-in",
+    text:"Use this one-time code to finish signing in:",code
+  });
+  const sendResetCode=(email,code)=>sendGrimEmail({
+    to:email,subject:"Reset your GRIM password",heading:"Reset your password",
+    text:"Use this one-time code to reset your GRIM password:",code
+  });
 
   async function issueTwoFactor(customer, req) {
     const code = newOtp();
@@ -63,11 +105,12 @@ export function installGrimV6(app, { supabase }) {
     });
     if (error) throw error;
     await sendTwoFactorCode(customer.email, code);
-    req.session.pending2fa = {
-      customerId: customer.id,
-      email: customer.email,
-      issuedAt: Date.now()
-    };
+    const issuedAt=Date.now();
+    req.session.pending2fa = { customerId:customer.id, email:customer.email, issuedAt };
+    setChallengeCookie(req.res, "grim.2fa", makeToken({
+      kind:"2fa", customerId:customer.id, email:customer.email,
+      issuedAt, exp:issuedAt + 10*60*1000
+    }), 10*60*1000);
   }
   const emailOK = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
   const passwordOK = p => typeof p === "string" && p.length >= 8 &&
@@ -104,6 +147,22 @@ export function installGrimV6(app, { supabase }) {
     };
   }
 
+  // Restore the signed-in customer when Vercel gives this request a fresh serverless instance.
+  app.use(async (req,res,next)=>{
+    if(!supabase || req.session?.user?.email || !persistentAuth?.readEmail) return next();
+    try{
+      const email=cleanEmail(persistentAuth.readEmail(req));
+      if(!email) return next();
+      const user=await customerByEmail(email);
+      if(!user || user.account_status==="disabled" || user.account_status==="suspended"){
+        persistentAuth.clear?.(res);
+        return next();
+      }
+      req.session.user=sessionUser(user);
+    }catch(e){ console.error("[GRIM persistent auth restore]",e); }
+    next();
+  });
+
   // Intercept legacy auth endpoints before SQLite routes.
   app.use(async (req, res, next) => {
     if (!supabase) return next();
@@ -137,6 +196,7 @@ export function installGrimV6(app, { supabase }) {
         if (error) throw error;
 
         req.session.user = sessionUser(data);
+        persistentAuth?.set?.(res, data.email);
         return res.json(req.session.user);
       }
 
@@ -166,6 +226,7 @@ if (user.two_factor_enabled === true) {
 // 2FA is disabled — complete sign-in immediately.
 req.session.user = sessionUser(user);
 delete req.session.pending2fa;
+persistentAuth?.set?.(res, user.email);
 
 await supabase
   .from("customers")
@@ -215,7 +276,18 @@ return res.json({
           newUser = true;
         }
 
+        const googlePatch = {
+          auth_provider: user.auth_provider === "password" ? "password" : "google",
+          google_sub: clean(profile.sub,200),
+          google_connected: true,
+          last_login_at: new Date().toISOString()
+        };
+        const {data:googleUser,error:googleErr}=await supabase.from("customers")
+          .update(googlePatch).eq("id",user.id).select("*").single();
+        if(googleErr) throw googleErr;
+        user=googleUser;
         req.session.user = sessionUser(user);
+        persistentAuth?.set?.(res, user.email);
         return res.json({ ok:true, ...req.session.user, newUser });
       }
     } catch (err) {
@@ -227,7 +299,8 @@ return res.json({
 
   app.post("/api/auth/2fa/verify", async (req,res) => {
     if (!requireDb(res)) return;
-    const pending = req.session?.pending2fa;
+    const tokenPending=readToken(cookieValue(req,"grim.2fa"));
+    const pending = req.session?.pending2fa || (tokenPending?.kind==="2fa" ? tokenPending : null);
     const code = clean(req.body?.code, 12);
     if (!pending?.customerId) return res.status(401).json({error:"Start sign-in again."});
     if (!/^\d{6}$/.test(code)) return res.status(400).json({error:"Enter the 6-digit code."});
@@ -256,6 +329,8 @@ return res.json({
 
       req.session.user=sessionUser(user);
       delete req.session.pending2fa;
+      clearChallengeCookie(res,"grim.2fa");
+      persistentAuth?.set?.(res,user.email);
       await supabase.from("customers").update({last_login_at:new Date().toISOString()}).eq("id",user.id);
       return res.json({ok:true,user:req.session.user});
     } catch(e) {
@@ -266,7 +341,8 @@ return res.json({
 
   app.post("/api/auth/2fa/resend", async (req,res) => {
     if (!requireDb(res)) return;
-    const pending=req.session?.pending2fa;
+    const tokenPending=readToken(cookieValue(req,"grim.2fa"));
+    const pending=req.session?.pending2fa || (tokenPending?.kind==="2fa" ? tokenPending : null);
     if(!pending?.customerId) return res.status(401).json({error:"Start sign-in again."});
     if(Date.now()-Number(pending.issuedAt||0)<60000)
       return res.status(429).json({error:"Wait one minute before requesting another code."});
@@ -281,6 +357,68 @@ return res.json({
     }
   });
  
+
+  app.post("/api/auth/forgot-password", async (req,res)=>{
+    if(!requireDb(res)) return;
+    const email=cleanEmail(req.body?.email);
+    // Same outward response prevents account enumeration.
+    const safe={ok:true,message:"If that email belongs to a GRIM account, a reset code has been sent."};
+    if(!emailOK(email)) return res.json(safe);
+    try{
+      const user=await customerByEmail(email);
+      if(!user) return res.json(safe);
+      const code=newOtp(), issuedAt=Date.now();
+      const token=makeToken({
+        kind:"reset", customerId:user.id, email:user.email,
+        codeHash:sha256(code), attempts:5, issuedAt, exp:issuedAt+10*60*1000
+      });
+      setChallengeCookie(res,"grim.reset",token,10*60*1000);
+      await sendResetCode(user.email,code);
+      return res.json(safe);
+    }catch(e){
+      console.error("[GRIM password reset request]",e);
+      return res.status(500).json({error:"Unable to send the reset code right now."});
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req,res)=>{
+    if(!requireDb(res)) return;
+    const email=cleanEmail(req.body?.email), code=clean(req.body?.code,12);
+    const newPassword=String(req.body?.newPassword||"");
+    const token=readToken(cookieValue(req,"grim.reset"));
+    if(!token || token.kind!=="reset" || cleanEmail(token.email)!==email)
+      return res.status(400).json({error:"That reset request expired. Request a new code."});
+    if(!/^\d{6}$/.test(code)) return res.status(400).json({error:"Enter the 6-digit code."});
+    if(sha256(code)!==token.codeHash)
+      return res.status(400).json({error:"Incorrect reset code."});
+    if(!passwordOK(newPassword))
+      return res.status(400).json({error:"Password must include uppercase, lowercase, number and special character."});
+    try{
+      const passwordHash=await bcrypt.hash(newPassword,12);
+      const {data:user,error}=await supabase.from("customers").update({
+        password_hash:passwordHash,
+        password_changed_at:new Date().toISOString(),
+        auth_provider:"password"
+      }).eq("id",token.customerId).eq("email",email).select("*").single();
+      if(error) throw error;
+      clearChallengeCookie(res,"grim.reset");
+      req.session.user=sessionUser(user);
+      persistentAuth?.set?.(res,user.email);
+      return res.json({ok:true,message:"Password reset successfully.",user:req.session.user});
+    }catch(e){
+      console.error("[GRIM password reset verify]",e);
+      return res.status(500).json({error:"Unable to reset the password right now."});
+    }
+  });
+
+  app.post("/api/logout",(req,res)=>{
+    persistentAuth?.clear?.(res);
+    clearChallengeCookie(res,"grim.2fa");
+    clearChallengeCookie(res,"grim.reset");
+    if(!req.session) return res.json({ok:true});
+    req.session.destroy(()=>res.json({ok:true}));
+  });
+
   app.get("/api/account", async (req,res) => {
     if (!requireDb(res)) return;
     const session = requireUser(req,res); if (!session) return;
@@ -370,6 +508,11 @@ privacy: {
     const firstName = clean(req.body?.firstName, 80);
     const lastName = clean(req.body?.lastName, 80);
     const phone = clean(req.body?.phone, 80);
+    const birthday = clean(req.body?.birthday, 20) || null;
+    const preferredSize = clean(req.body?.preferredSize, 20) || null;
+    const shippingAddress = typeof req.body?.shippingAddress === "object"
+      ? req.body.shippingAddress
+      : (clean(req.body?.shippingAddress, 1000) || null);
 
     if (!firstName || !lastName) {
       return res.status(400).json({ error: "First and last name are required." });
@@ -382,7 +525,10 @@ privacy: {
           first_name: firstName,
           last_name: lastName,
           name: `${firstName} ${lastName}`.trim(),
-          phone
+          phone,
+          birthday,
+          preferred_size: preferredSize,
+          shipping_address: shippingAddress
         })
         .eq("email", session.email)
         .select("*")
@@ -464,9 +610,9 @@ privacy: {
     const currentPassword = String(req.body?.currentPassword || "");
     const newPassword = String(req.body?.newPassword || "");
 
-    if (newPassword.length < 8) {
+    if (!passwordOK(newPassword)) {
       return res.status(400).json({
-        error: "New password must be at least 8 characters."
+        error: "New password must include uppercase, lowercase, number and special character."
       });
     }
 
@@ -491,7 +637,7 @@ privacy: {
 
       const { error } = await supabase
         .from("customers")
-        .update({ password_hash: passwordHash })
+        .update({ password_hash: passwordHash, password_changed_at:new Date().toISOString() })
         .eq("id", user.id);
 
       if (error) throw error;
