@@ -4,7 +4,7 @@ import { finalizePaidOrder } from './grim-paid-orders.js';
 const PREFIX = /^GRIM-[a-f0-9]{32}$/;
 const COUNTRIES = new Set(['NG', 'US', 'GB', 'CA', 'GH', 'ZA', 'KE', 'AE']);
 const SIZES = new Set(['S', 'M', 'L', 'XL', 'XXL']);
-const ORIGINS = new Set(['https://rlwslim-code.github.io', 'https://rlwslim-code-github-io.vercel.app']);
+const ORIGINS = new Set(['https://rlwslim-code.github.io', 'https://rlwslim-code-github-io.vercel.app', 'https://grimwear.store', 'https://www.grimwear.store']);
 
 function field(value, label, maximum, optional = false, multiline = false) {
   const text = typeof value === 'string' ? value.trim() : '';
@@ -44,6 +44,17 @@ function buildOrder(body, productById, reference, mode) {
   if (!COUNTRIES.has(address.country)) {
     throw new Error('Please select a supported delivery country.');
   }
+  const billingInput = body?.billing || {};
+  const billing = {
+    country: field(billingInput.country || address.country, 'billing country', 2),
+    address: field(billingInput.address || address.address, 'billing street address', 250),
+    city: field(billingInput.city || address.city, 'billing city', 100),
+    state: field(billingInput.state || address.state, 'billing state or province', 100),
+    postal: field(billingInput.postal || address.postal, 'billing postal code', 30, true)
+  };
+  if (!COUNTRIES.has(billing.country)) throw new Error('Please select a supported billing country.');
+  const saveCard = body?.saveCard === true;
+
 
   const channel = body?.method;
 
@@ -122,6 +133,8 @@ function buildOrder(body, productById, reference, mode) {
     amount,
     customer: contact,
     delivery: address,
+    billing,
+    saveCard,
     items,
     deliveryFeeIncluded: false
   };
@@ -554,6 +567,12 @@ if (paid) {
   }
 }
 
+const reusableAuthorization =
+  paid && order?.saveCard === true && data.authorization?.reusable === true &&
+  typeof data.authorization?.authorization_code === 'string'
+    ? { authorizationCode: data.authorization.authorization_code, brand: String(data.authorization.brand || ''), last4: String(data.authorization.last4 || ''), expMonth: String(data.authorization.exp_month || ''), expYear: String(data.authorization.exp_year || '') }
+    : null;
+
 return res.json({
   ok: true,
   verified: paid,
@@ -561,6 +580,7 @@ return res.json({
   orderVerified: paid,
   orderStored: paid ? true : false,
   orderId: storedOrder?.id ?? null,
+  reusableAuthorization,
   reference,
   amount: data.amount,
   currency: data.currency,
