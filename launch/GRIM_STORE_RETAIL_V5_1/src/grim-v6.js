@@ -837,7 +837,7 @@ privacy: {
     {q:"Is my wallet balance secure?",a:"Wallet credits and debits are recorded on the server. Funding is credited only after Paystack confirms a successful payment."}
   ];
   app.get("/api/faqs", (_req,res)=>res.json(FAQ));
-  app.post("/api/assist", async (req,res)=>{
+  app.post("/api/legacy/assist", async (req,res)=>{
     const q=clean(req.body?.message,800).toLowerCase();
     if(!q) return res.status(400).json({error:"Ask GRIM ASSIST a question."});
     if (/^(hi|hello|hey|hiya|yo|good (morning|afternoon|evening)|hey buddy|hello grim|hi grim)[!. ]*$/i.test(q)) {

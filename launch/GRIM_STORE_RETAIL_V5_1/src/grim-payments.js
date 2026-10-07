@@ -266,6 +266,7 @@ export function installGrimPayments(
       expYear:String(authorization.exp_year || ''),
       bank:String(authorization.bank || ''),
       countryCode:String(authorization.country_code || ''),
+      email:cleanEmail(order.customer?.email),
       signature,
       reusable:true,
       savedAt:new Date().toISOString()
@@ -336,6 +337,31 @@ export function installGrimPayments(
       console.error('[GRIM delete payment method]',e);
       return res.status(500).json({error:'Unable to remove saved payment method.'});
     }
+  });
+
+  app.post('/api/payments/charge-saved', async (req,res)=>{
+    res.setHeader('Cache-Control','no-store');
+    try{
+      const config=configuration(),customer=await signedInCustomer(req);
+      if(!customer)return res.status(401).json({error:'Sign in to use a saved card.'});
+      const method=savedMethods(customer).find(x=>x.id===String(req.body?.paymentMethodId||''));
+      if(!method?.authorizationCode||method.reusable!==true)return res.status(404).json({error:'That saved card is no longer available.'});
+      const reference=`GRIM-${randomBytes(16).toString('hex')}`;
+      const body={...req.body,method:'card',customer:{...(req.body?.customer||{}),email:cleanEmail(method.email||customer.email)}};
+      const order=buildOrder(body,productById,reference,config.mode);
+      if(req.body.expectedAmount!==order.amount)return res.status(409).json({error:'Your bag price has changed. Refresh the shop and review your bag before paying.'});
+      if(cleanEmail(order.customer.email)!==cleanEmail(method.email||customer.email))return res.status(403).json({error:'This saved card cannot be used with that email address.'});
+      const previewOrigin=process.env.VERCEL_ENV==='preview'&&process.env.VERCEL_URL?`https://${process.env.VERCEL_URL}`:null;
+      const origin=ORIGINS.has(req.headers.origin)||req.headers.origin===previewOrigin?req.headers.origin:'https://www.grimwear.store';
+      const orderJSON=JSON.stringify(order);
+      const data=await paystack('charge_authorization',config,{authorization_code:method.authorizationCode,email:order.customer.email,amount:order.amount,currency:'NGN',reference,callback_url:`${origin}/?grim-payment=return`,metadata:JSON.stringify({grim_order:orderJSON,grim_signature:sign(orderJSON,config.secret),cancel_action:`${origin}/?grim-payment=cancel`})});
+      if(data.reference!==reference)throw new Error('Paystack returned an invalid saved-card response.');
+      if(data.paused===true){const authorizationUrl=checkoutURL(data.authorization_url);if(!authorizationUrl)throw new Error('Paystack card authentication could not be opened.');return res.json({ok:true,reference,authorizationUrl,requiresAuthentication:true});}
+      if(data.status!=='success')return res.status(402).json({error:data.gateway_response||'The saved card charge was not approved.',reference});
+      if(data.amount!==order.amount||data.currency!==order.currency||data.domain!==config.mode)throw new Error('Saved-card payment verification did not match the order.');
+      const stored=await finalizePaidOrder({order,reference});
+      return res.json({ok:true,paid:true,reference,orderId:stored?.id??null});
+    }catch(e){console.error('[GRIM saved card charge]',e);return res.status(e.statusCode||500).json({error:e.message||'Unable to use saved card.'});}
   });
 
   app.post('/api/payments/initialize', async (req, res) => {
