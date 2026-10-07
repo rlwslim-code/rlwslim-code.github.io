@@ -60,7 +60,7 @@ export function installGrimV7(app,{supabase}){
   }catch(e){console.error("[GRIM reset]",e);return res.status(500).json({error:"Unable to reset password right now."});}
  });
  // GRIM Assist AI — natural conversation with server-grounded store/account context.
- app.post("/api/assist",async(req,res)=>{
+ app.post("/api/v7/assist-ai",async(req,res)=>{
   const message=clean(req.body?.message,1200),history=clean(req.body?.context,7000);
   if(!message)return res.status(400).json({error:"Enter a message for GRIM Assist."});
   if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"GRIM Assist AI is not configured yet."});
