@@ -194,8 +194,6 @@ function openChat(){closeG7();const m=document.createElement("div");m.className=
    if(needsHuman(q)){const a=localReply(q);say(a||"I can send this to GRIM Customer Care with the context from our conversation.");humanBtn();return}
    const local=localReply(q);if(local){say(local);return}
    try{
-    if(/^(hi|hello|hey|hiya|yo|good (morning|afternoon|evening)|hey buddy|hello grim|hi grim)[!. ]*$/i.test(q)){say("RAV’KAEL 🖤 Good to have you here. I’m GRIM Assist. Ask me about products, sizing, delivery, payments, your wallet, orders, returns or your account.");return}
-    if(/^(what('?s| is) good|what('?s| is) up|sup|wassup|how are you|how('?s| is) it going|you good|how you doing)[?!. ]*$/i.test(q)){say("RAV’KAEL 🖤 I’m good. What can I help you with today — the collection, an order, payment, delivery, your wallet, or your account?");return}
     const b=await api("/api/assist",{method:"POST",body:JSON.stringify({message:q,context:chatHistory(msgs)})});say(b.answer||"I can help with that.");if(b.escalate)humanBtn()}
    catch{say("I’m having trouble reaching store information right now. I can still send a real Customer Care request for you.");humanBtn()}
  };

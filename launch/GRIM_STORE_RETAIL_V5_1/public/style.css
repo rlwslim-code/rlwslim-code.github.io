@@ -924,3 +924,9 @@ html[data-grim-theme="light"] #g6-disable-push{
 /* GRIM recovery: readable auth fields on light account modal */
 #auth input,#auth textarea,#auth select,#authModal input,#authModal textarea,#authModal select{color:#111!important;background:#fffaf3!important;-webkit-text-fill-color:#111!important;caret-color:#111!important;opacity:1!important}
 #auth input::placeholder,#authModal input::placeholder{color:#777!important;opacity:1!important}
+
+/* GRIM final search experience */
+.grim-search-overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:99999;display:flex;align-items:flex-start;justify-content:center;padding:10vh 16px 30px;backdrop-filter:blur(8px)}
+.grim-search-card{position:relative;width:min(680px,100%);max-height:80vh;overflow:auto;background:#f5f0e7;color:#111;border:1px solid #777;padding:24px;box-shadow:0 25px 80px #000}
+.grim-search-card h2{margin:5px 0 16px}.grim-search-card>input{width:100%;box-sizing:border-box;padding:15px;background:#fff;color:#111;border:1px solid #888;font-size:16px;-webkit-text-fill-color:#111}
+.grim-search-close{position:absolute;right:14px;top:12px;font-size:25px;background:none;border:0;color:#111}.grim-search-result{width:100%;display:flex;justify-content:space-between;gap:12px;text-align:left;align-items:center;padding:13px 4px;border:0;border-bottom:1px solid #c7c0b5;background:transparent;color:#111}.grim-search-result span{display:grid;gap:3px}.grim-search-result small{opacity:.65}.grim-search-result strong{white-space:nowrap}

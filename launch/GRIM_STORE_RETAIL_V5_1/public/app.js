@@ -364,7 +364,13 @@ if(E('authForm')) E('authForm').onsubmit = async e => {
 if(E('orderForm'))E('orderForm').onsubmit=async e=>{e.preventDefault();let r=await fetch('/api/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:E('oName').value,email:E('oEmail').value,phone:E('oPhone').value,address:E('oAddress').value,country:market.country,currency:market.currency,items:cart.map(x=>({id:x.id,qty:x.qty,size:x.size}))})}),j=await r.json();if(r.ok){E('oMsg').textContent=`ORDER #${j.orderId} RECEIVED — ${M(j.total)}`;cart=[];save();draw();E('orderForm').reset()}else E('oMsg').textContent=j.error};setMode('login');init();
 
 function toggleMobile(){E('mobileNav')?.classList.toggle('open')}
-function openSearch(){E('search')?.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>E('search')?.focus(),500)}
+function openSearch(){
+  document.querySelector('.grim-search-overlay')?.remove();
+  const m=document.createElement('div');m.className='grim-search-overlay';m.innerHTML=`<div class="grim-search-card"><button class="grim-search-close" type="button">×</button><small>SEARCH GRIM</small><h2>FIND YOUR PIECE</h2><input id="grimGlobalSearch" autocomplete="off" placeholder="Search tees, hoodies, colorways…"><div id="grimGlobalResults"></div></div>`;document.body.append(m);
+  const input=m.querySelector('#grimGlobalSearch'),results=m.querySelector('#grimGlobalResults');
+  const show=()=>{const q=input.value.trim().toLowerCase();const found=q?catalog.filter(p=>`${p.name} ${p.type} ${p.color} ravkael grim`.toLowerCase().includes(q)).slice(0,12):catalog.slice(0,6);results.innerHTML=found.length?found.map(p=>`<button type="button" class="grim-search-result" data-q="${String(p.name).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"><span><b>${p.name}</b><small>${p.type} · ${p.color}</small></span><strong>${M(p.price)}</strong></button>`).join(''):'<p class="empty-note">No GRIM pieces matched that search.</p>';results.querySelectorAll('.grim-search-result').forEach(b=>b.onclick=()=>{const q=b.dataset.q||'';m.remove();quickSearch(q);document.getElementById('products')?.scrollIntoView({behavior:'smooth',block:'start'})})};
+  input.oninput=show;m.querySelector('.grim-search-close').onclick=()=>m.remove();m.onclick=e=>{if(e.target===m)m.remove()};show();setTimeout(()=>input.focus(),50);
+}
 function quickSearch(q){let s=E('search');if(s){s.value=q;render();s.scrollIntoView({behavior:'smooth',block:'center'})}}
 function clearFilters(){if(E('search'))E('search').value='';if(E('category'))E('category').value='all';if(E('color'))E('color').value='all';if(E('sort'))E('sort').value='featured';render()}
 function openHelp(kind='general'){let map={order:'ORDER SUPPORT',size:'SIZE HELP',delivery:'DELIVERY SUPPORT',general:'CONTACT GRIM'};if(E('helpTitle'))E('helpTitle').textContent=map[kind]||map.general;if(E('helpTopic'))E('helpTopic').value=kind==='order'?'Order support':kind==='size'?'Size help':kind==='delivery'?'Delivery':'Other';E('helpModal')?.classList.add('open')}
@@ -432,6 +438,7 @@ function buildGrimCheckout(){
         placeholder="Delivery instructions (optional)"></textarea>
 
       <h3>BILLING ADDRESS</h3>
+      <div id="savedBillingBox" style="margin:0 0 10px"></div>
       <label class="check" style="align-items:center;margin:10px 0"><input id="coBillingSame" type="checkbox" checked> <span>Billing address is the same as delivery</span></label>
       <div id="coBillingFields" style="display:none">
         <input id="coBillingAddress" placeholder="Billing street address">
@@ -670,9 +677,12 @@ if (!finalCity && finalPostcode) {
   country.addEventListener('change',paymentAvailability);
   const billingSame=E('coBillingSame'),billingFields=E('coBillingFields');
   if(billingSame&&billingFields) billingSame.addEventListener('change',()=>{billingFields.style.display=billingSame.checked?'none':'block'});
+  let savedBilling=null;
   fetch('/api/settings',{credentials:'include',cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{
-    const b=j?.shopping?.checkoutPreferences?.savedBillingAddress;if(!b)return;
-    if(E('coBillingAddress'))E('coBillingAddress').value=b.address||'';if(E('coBillingCity'))E('coBillingCity').value=b.city||'';if(E('coBillingState'))E('coBillingState').value=b.state||'';if(E('coBillingPostal'))E('coBillingPostal').value=b.postal||'';
+    const b=j?.shopping?.checkoutPreferences?.savedBillingAddress;if(!b)return;savedBilling=b;
+    const box=E('savedBillingBox');if(box)box.innerHTML=`<div style="border:1px solid #bbb;padding:11px;margin:6px 0;font-size:11px"><b>SAVED BILLING ADDRESS</b><br>${[b.address,b.city,b.state,b.postal,b.country].filter(Boolean).join(', ')}<div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap"><button type="button" id="useSavedBilling">USE FOR BILLING</button><button type="button" id="useSavedDelivery">USE FOR DELIVERY</button></div></div>`;
+    const fillBilling=()=>{if(E('coBillingSame'))E('coBillingSame').checked=false;if(E('coBillingFields'))E('coBillingFields').style.display='block';E('coBillingAddress').value=b.address||'';E('coBillingCity').value=b.city||'';E('coBillingState').value=b.state||'';E('coBillingPostal').value=b.postal||''};
+    E('useSavedBilling')&&(E('useSavedBilling').onclick=fillBilling);E('useSavedDelivery')&&(E('useSavedDelivery').onclick=()=>{E('coAddress').value=b.address||'';E('coCity').value=b.city||'';E('coState').value=b.state||'';E('coPostal').value=b.postal||'';if(b.country&&[...E('coCountry').options].some(o=>o.value===b.country))E('coCountry').value=b.country;paymentAvailability()});
   }).catch(()=>{});
 
   E('grimCheckoutForm').onsubmit=e=>{
@@ -700,7 +710,9 @@ if (!finalCity && finalPostcode) {
   const savedBox=E('savedCardsBox');
   fetch('/api/payments/methods',{credentials:'include',cache:'no-store'}).then(async r=>{if(!r.ok)return null;return r.json()}).then(j=>{
     const methods=j?.methods||[]; if(!savedBox)return;
-    savedBox.innerHTML=methods.length?'<div style="font-size:10px;letter-spacing:1.5px;margin-bottom:7px"><b>SAVED CARDS</b></div>'+methods.map(m=>`<div style="border:1px solid #bbb;padding:10px;margin:6px 0;font-size:11px">${String(m.brand||'CARD').toUpperCase()} •••• ${m.last4||''} ${m.expMonth&&m.expYear?`· ${m.expMonth}/${m.expYear}`:''}</div>`).join(''):'';
+    savedBox.innerHTML=methods.length?'<div style="font-size:10px;letter-spacing:1.5px;margin-bottom:7px"><b>SAVED CARDS</b> · choose one to pay without re-entering card details</div>'+methods.map((m,i)=>`<label style="display:flex;align-items:center;gap:10px;border:1px solid #bbb;padding:11px;margin:6px 0;font-size:11px"><input type="radio" name="grimSavedCard" value="${m.id}" ${i===0?'checked':''}><span style="flex:1"><b>${String(m.brand||'CARD').toUpperCase()} •••• ${m.last4||''}</b>${m.expMonth&&m.expYear?` · ${m.expMonth}/${m.expYear}`:''}</span><button type="button" class="removeSavedCard" data-id="${m.id}">REMOVE</button></label>`).join('')+'<button class="dark full" id="paySavedCard" type="button" style="margin:10px 0">PAY WITH SELECTED SAVED CARD</button>':'';
+    savedBox.querySelectorAll('.removeSavedCard').forEach(b=>b.onclick=async()=>{if(!confirm('Remove this saved card from GRIM?'))return;await fetch('/api/payments/methods/'+encodeURIComponent(b.dataset.id),{method:'DELETE',credentials:'include'});b.closest('label')?.remove()});
+    E('paySavedCard')&&(E('paySavedCard').onclick=()=>startGrimSavedCardPayment());
   }).catch(()=>{});
 
   E('payWallet').onclick=async()=>{
@@ -717,6 +729,22 @@ if (!finalCity && finalPostcode) {
       'Preparing secure bank transfer…';
     startGrimPayment('bank_transfer');
   };
+}
+
+async function startGrimSavedCardPayment(){
+  const selected=document.querySelector('input[name="grimSavedCard"]:checked'),msg=E('paymentMessage'),btn=E('paySavedCard');if(!selected)return msg.textContent='Choose a saved card first.';
+  btn.disabled=true;msg.textContent='Charging selected saved card securely…';
+  try{
+    const items=cart.map(i=>({id:Number(i.id),qty:Math.max(1,Number(i.qty||1)),size:String(i.size||'M')}));
+    const products=await fetch('/api/products',{credentials:'include',cache:'no-store'}).then(r=>r.json()),map=new Map(products.map(p=>[Number(p.id),p]));let expectedAmount=0;for(const i of items){const p=map.get(i.id);if(!p)throw new Error('An item in your bag is unavailable.');expectedAmount+=Number(p.price)*i.qty*100}
+    const delivery={country:E('coCountry').value||'NG',address:E('coAddress').value.trim(),apartment:E('coApartment').value.trim(),city:E('coCity').value.trim(),state:E('coState').value.trim(),postal:E('coPostal').value.trim(),instructions:E('coInstructions').value.trim()};
+    const billing=E('coBillingSame')?.checked!==false?{...delivery}:{country:delivery.country,address:E('coBillingAddress').value.trim(),city:E('coBillingCity').value.trim(),state:E('coBillingState').value.trim(),postal:E('coBillingPostal').value.trim()};
+    const payload={paymentMethodId:selected.value,expectedAmount,customer:{email:E('coEmail').value.trim(),firstName:E('coFirst').value.trim(),lastName:E('coLast').value.trim(),phone:E('coPhone').value.trim()},delivery,billing,items};
+    const r=await fetch('/api/payments/charge-saved',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}),j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Saved card payment failed.');
+    if(j.authorizationUrl){msg.textContent='Additional card authentication is required…';location.assign(j.authorizationUrl);return}
+    if(j.paid){msg.textContent=`Payment complete. Order #${j.orderId||j.reference}.`;cart=[];saveCart();draw();return}
+    throw new Error('Saved card payment could not be confirmed.');
+  }catch(e){msg.textContent=e.message||'Saved card payment failed.';btn.disabled=false}
 }
 
 function startGrimPayment(method) {
