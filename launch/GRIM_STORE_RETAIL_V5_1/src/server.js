@@ -768,9 +768,7 @@ app.post("/api/orders", async (req, res) => {
         address: order.address,
         total: order.total,
         status: "new",
-        items: clean,
-        country: country || "NG",
-        currency: currency || "NGN"
+        items_json: JSON.stringify(clean)
       };
 
       const { data, error } = await grimSupabase

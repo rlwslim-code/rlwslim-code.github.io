@@ -119,7 +119,7 @@ export function installGrimV8(app, { supabase, priceCart, notifyOrder }) {
         .maybeSingle();
       if (existingErr) throw existingErr;
 
-      if (existing?.order_id) {
+      if (existing?.order_id && existing.status === "completed") {
         return res.json({
           ok: true,
           paid: true,
@@ -151,10 +151,10 @@ export function installGrimV8(app, { supabase, priceCart, notifyOrder }) {
         phone,
         address,
         total,
-        status: "new",
-        items: cleanItems,
-        country: country || "NG",
-        currency: "NGN"
+        status: "payment_pending",
+        items_json: JSON.stringify(cleanItems),
+        payment_status: "pending",
+        payment_reference: idempotencyKey
       };
 
       const { data: pendingOrder, error: orderErr } = await supabase
@@ -176,8 +176,7 @@ export function installGrimV8(app, { supabase, priceCart, notifyOrder }) {
       });
 
       if (debitErr) {
-        // No wallet debit occurred if the RPC failed; remove the pending order.
-        await supabase.from("orders").delete().eq("id", pendingOrder.id);
+        // Keep pending order for reconciliation: an ambiguous RPC/network failure must never delete its audit trail.
 
         const msg = String(debitErr.message || "").toLowerCase();
         if (msg.includes("insufficient")) {
@@ -192,10 +191,11 @@ export function installGrimV8(app, { supabase, priceCart, notifyOrder }) {
       // Debit succeeded. Mark the durable order ready for normal admin fulfilment.
       const { error: paidErr } = await supabase
         .from("orders")
-        .update({ status: "new" })
+        .update({ status: "new", payment_status: "paid" })
         .eq("id", pendingOrder.id);
       if (paidErr) {
         console.error("[GRIM V8 wallet checkout order finalize]", paidErr);
+        return res.status(503).json({error:"Wallet debit may have succeeded but order finalization failed. Do not retry payment; contact GRIM support with your checkout reference.", checkoutKey});
       }
 
       const order = {
@@ -251,7 +251,7 @@ app.post("/api/v8/wallet/fund/initialize", async (req, res) => {
       const key = paystackSecret();
       const { randomBytes } = await import("node:crypto");
       const reference = `GRIM-WALLET-${randomBytes(16).toString("hex")}`;
-      const origin = "https://www.grimwear.store";
+      const origin = "https://rlwslim-code-github-io.vercel.app";
 
       const tx = await paystackRequest("initialize", key, {
         email: customer.email,
@@ -332,7 +332,8 @@ app.post("/api/v8/wallet/fund/initialize", async (req, res) => {
         Number.isSafeInteger(amountMinor) &&
         amountMinor > 0 &&
         Number.isSafeInteger(Number(tx.amount)) &&
-        Number(tx.amount) === amountMinor &&
+        Number(tx.amount) >= amountMinor &&
+        Number(tx.amount) - amountMinor <= 100000 &&
         tx.currency === "NGN" &&
         w.currency === "NGN";
 
@@ -379,7 +380,6 @@ app.post("/api/v8/wallet/fund/initialize", async (req, res) => {
       const orderRef = clean(req.body?.orderRef || req.body?.order || "", 80) || null;
       const message = clean(req.body?.message, 4000);
       const source = clean(req.body?.source || "customer_care", 40);
-      const assistContext = clean(req.body?.assistContext || "", 4000);
 
       if (!message) {
         return res.status(400).json({ error: "Tell GRIM Customer Care how we can help." });
@@ -405,7 +405,7 @@ app.post("/api/v8/wallet/fund/initialize", async (req, res) => {
 
       const { error: mErr } = await supabase.from("support_messages").insert({
         conversation_id: conversation.id,
-        sender_type: "customer",
+        sender_type: source === "grim_assist" ? "assistant" : "customer",
         sender_name: customer.name || "Customer",
         message,
         read_by_customer: true,
@@ -417,7 +417,7 @@ app.post("/api/v8/wallet/fund/initialize", async (req, res) => {
         conversation_id: conversation.id,
         event_type: "conversation_created",
         actor_type: "customer",
-        metadata: { source, category, assistContext: assistContext || null }
+        metadata: { source, category }
       });
 
       return res.status(201).json({ ok: true, conversation });
