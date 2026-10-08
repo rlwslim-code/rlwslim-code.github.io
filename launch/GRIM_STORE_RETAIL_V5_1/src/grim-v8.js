@@ -120,6 +120,12 @@ export function installGrimV8(app, { supabase, priceCart, notifyOrder }) {
       if (existingErr) throw existingErr;
 
       if (existing?.order_id && existing.status === "completed") {
+        const { data: paidOrder, error: paidLookupError } = await supabase.from("orders")
+          .select("id,payment_status").eq("id", existing.order_id).maybeSingle();
+        if (paidLookupError) throw paidLookupError;
+        if (!paidOrder || paidOrder.payment_status !== "paid") {
+          return res.status(503).json({ error: "Wallet debit is recorded, but the order needs reconciliation. Do not pay again.", checkoutKey });
+        }
         return res.json({
           ok: true,
           paid: true,
@@ -142,6 +148,14 @@ export function installGrimV8(app, { supabase, priceCart, notifyOrder }) {
       const amountMinor = Math.round(total * 100);
       if (!Number.isSafeInteger(amountMinor) || amountMinor <= 0) {
         return res.status(400).json({ error: "Unable to calculate this order total." });
+      }
+
+      // Prevent a second order/debit for a reused key that has an unresolved order.
+      const { data: unresolved, error: unresolvedError } = await supabase.from("orders")
+        .select("id,payment_status").eq("payment_reference", idempotencyKey).limit(1);
+      if (unresolvedError) throw unresolvedError;
+      if (unresolved?.length) {
+        return res.status(409).json({ error: "This wallet checkout is awaiting reconciliation. Do not pay again.", checkoutKey });
       }
 
       // Create a pending Supabase order first so the wallet debit has a durable order reference.
