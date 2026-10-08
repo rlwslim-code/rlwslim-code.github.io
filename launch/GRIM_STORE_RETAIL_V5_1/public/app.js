@@ -778,7 +778,7 @@ if (!finalCity && finalPostcode) {
     try{
       const payload={name:`${E('coFirst').value.trim()} ${E('coLast').value.trim()}`.trim(),phone:E('coPhone').value.trim(),address:[E('coAddress').value.trim(),E('coApartment').value.trim(),E('coCity').value.trim(),E('coState').value.trim(),E('coPostal').value.trim()].filter(Boolean).join(', '),country:E('coCountry').value||'NG',currency:'NGN',checkoutKey:'web_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,12),items:cart.map(i=>({id:Number(i.id),qty:Math.max(1,Number(i.qty||1)),size:String(i.size||'M')}))};
       const r=await fetch('/api/v8/wallet/checkout',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const j=await r.json().catch(()=>({})); if(!r.ok)throw new Error(j.error||'Wallet checkout failed.');
-      msg.textContent=`Wallet payment complete. Order #${j.orderId}.`; cart=[]; saveCart(); draw();
+      msg.textContent=`Wallet payment complete. Order #${j.orderId}.`; cart=[]; save(); draw();
     }catch(e){msg.textContent=e.message||'Wallet checkout failed.';btn.disabled=false}
   };
 
@@ -800,116 +800,68 @@ async function startGrimSavedCardPayment(){
     const payload={paymentMethodId:selected.value,expectedAmount,customer:{email:E('coEmail').value.trim(),firstName:E('coFirst').value.trim(),lastName:E('coLast').value.trim(),phone:E('coPhone').value.trim()},delivery,billing,items};
     const r=await fetch('/api/payments/charge-saved',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}),j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Saved card payment failed.');
     if(j.authorizationUrl){msg.textContent='Additional card authentication is required…';location.assign(j.authorizationUrl);return}
-    if(j.paid){msg.textContent=`Payment complete. Order #${j.orderId||j.reference}.`;cart=[];saveCart();draw();return}
+    if(j.paid){msg.textContent=`Payment complete. Order #${j.orderId||j.reference}.`;cart=[];save();draw();return}
     throw new Error('Saved card payment could not be confirmed.');
   }catch(e){msg.textContent=e.message||'Saved card payment failed.';btn.disabled=false}
 }
 
-function startGrimPayment(method) {
-  const email = E('coEmail').value.trim();
-  const firstName = E('coFirst').value.trim();
-  const lastName = E('coLast').value.trim();
-  const phone = E('coPhone').value.trim();
-
-  const total = cart.reduce(
-    (sum, item) => sum + (item.price * item.qty),
-    0
-  );
-
-  if (!email) {
-    E('paymentMessage').textContent =
-      'Please enter your email address before payment.';
+let grimPaymentStarting = false;
+async function grimVerifyPayment(reference) {
+  const msg=E('paymentMessage');
+  if(msg)msg.textContent='Checking payment status…';
+  const response=await fetch('/api/payments/verify',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({reference})});
+  const result=await response.json().catch(()=>({}));
+  if(result.paystackPaid===true && result.orderStored===false){
+    if(msg)msg.textContent='Payment received but order syncing needs support. Do not pay again. Reference: '+reference;
     return;
   }
-
-  if (total <= 0) {
-    E('paymentMessage').textContent =
-      'Your bag is empty.';
-    return;
+  if(response.ok && result.verified===true && result.orderStored===true){
+    if(msg)msg.textContent='Payment complete ✓ Reference: '+reference;
+    localStorage.removeItem('grimPendingPayment');cart=[];save();draw();return;
   }
-
-  const popup = new PaystackPop();
-
-  popup.newTransaction({
-    key: 'pk_live_c4fc8a994bea77b16ffffe9c2372c94a393ce7e3',
-    email: email,
-    amount: Math.round(total * 100),
-    currency: 'NGN',
-
-    firstName: firstName,
-    lastName: lastName,
-    phone: phone,
-
-    channels:
-      method === 'bank_transfer'
-        ? ['bank_transfer']
-        : ['card'],
-
-    metadata: {
-      custom_fields: [
-        {
-          display_name: 'GRIM Customer',
-          variable_name: 'grim_customer',
-          value: `${firstName} ${lastName}`.trim()
-        }
-      ]
-    },
-
-    onSuccess: async (transaction) => {
-    E('paymentMessage').textContent = 'Verifying payment…';
-      window.GRIMPaymentStatus?.save(transaction.reference, Math.round(total * 100));
-
-    try {
-        const response = await fetch(
-            'https://rlwslim-code-github-io.vercel.app/api/payments/verify',
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    reference: transaction.reference
-                })
-            }
-        );
-
-        const result = await response.json();
-
-        if (response.ok && result.verified) {
-            E('paymentMessage').textContent =
-                'Payment verified ✓ Reference: ' + transaction.reference;
-
-            console.log('GRIM verified payment:', result);
-        } else {
-            E('paymentMessage').textContent =
-                'Payment could not be verified. Please contact GRIM support.';
-
-            console.error('Verification failed:', result);
-        }
-
-    } catch (error) {
-        E('paymentMessage').textContent =
-            'Payment verification error. Please contact GRIM support.';
-
-        console.error('Verification error:', error);
-    }
-},
-
-    onCancel: () => {
-      E('paymentMessage').textContent =
-        'Payment cancelled. You can try again.';
-    },
-
-    onError: (error) => {
-      console.error('Paystack error:', error);
-
-      E('paymentMessage').textContent =
-        'Payment could not start. Please try again.';
-    }
-  });
+  if(msg)msg.textContent=result.error||('Payment not confirmed. Do not retry until you check reference: '+reference);
+}
+async function startGrimPayment(method) {
+  if(grimPaymentStarting)return;
+  const msg=E('paymentMessage'),btn=E(method==='card'?'payCard':'payTransfer');
+  const pending=localStorage.getItem('grimPendingPayment');
+  if(pending){msg.textContent='A payment is awaiting confirmation. Do not pay again. Reference: '+pending;return;}
+  grimPaymentStarting=true;if(btn)btn.disabled=true;
+  try {
+    msg.textContent='Preparing secure payment…';
+    const items=cart.map(i=>({id:Number(i.id),qty:Number(i.qty),size:String(i.size||'M')}));
+    const responseProducts=await fetch('/api/products',{credentials:'include',cache:'no-store'});
+    if(!responseProducts.ok)throw new Error('Unable to refresh product prices.');
+    const products=await responseProducts.json(),byId=new Map(products.map(p=>[Number(p.id),p]));
+    let expectedAmount=0;
+    for(const item of items){const product=byId.get(item.id);if(!product)throw new Error('An item is no longer available.');expectedAmount+=Number(product.price)*item.qty*100;}
+    const delivery={country:E('coCountry').value,address:E('coAddress').value.trim(),apartment:E('coApartment').value.trim(),city:E('coCity').value.trim(),state:E('coState').value.trim(),postal:E('coPostal').value.trim(),instructions:E('coInstructions').value.trim()};
+    const billing=E('coBillingSame')?.checked!==false?{...delivery}:{country:delivery.country,address:E('coBillingAddress').value.trim(),city:E('coBillingCity').value.trim(),state:E('coBillingState').value.trim(),postal:E('coBillingPostal').value.trim()};
+    const payload={method,expectedAmount,items,delivery,billing,saveCard:E('coSaveCard')?.checked===true,customer:{email:E('coEmail').value.trim(),firstName:E('coFirst').value.trim(),lastName:E('coLast').value.trim(),phone:E('coPhone').value.trim()}};
+    const response=await fetch('/api/payments/initialize',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok||!result.authorizationUrl||!result.reference)throw new Error(result.error||'Could not initialize payment.');
+    localStorage.setItem('grimPendingPayment',result.reference);
+    msg.textContent='Opening Paystack. You will be charged in '+result.currency+'…';
+    window.location.assign(result.authorizationUrl);
+  }catch(error){msg.textContent=error.message||'Payment could not start.';}
+  finally{grimPaymentStarting=false;if(btn)btn.disabled=false;}
+}
+async function grimCheckReturnedPayment(){
+  const params=new URLSearchParams(location.search),pending=localStorage.getItem('grimPendingPayment');
+  if(params.get('grim-payment')!=='return'&&!params.has('reference')&&!params.has('trxref'))return;
+  const ref=params.get('reference')||params.get('trxref')||pending;
+  if(!ref||!/^GRIM-[a-f0-9]{32}$/.test(ref))return;
+  if(pending&&pending!==ref)return;
+  E('checkout')?.classList.add('open');
+  if(E('grimCheckoutForm'))E('grimCheckoutForm').style.display='none';
+  if(E('paymentStep'))E('paymentStep').style.display='block';
+  try{await grimVerifyPayment(ref);}catch(e){if(E('paymentMessage'))E('paymentMessage').textContent='Unable to check payment. Do not pay again. Reference: '+ref;}
+  history.replaceState(null,'',location.pathname);
 }
 
 buildGrimCheckout();
+grimCheckReturnedPayment();
 
 (function(){
  const labels={NG:{state:'State',postal:'Postal code',phone:'Phone number'},US:{state:'State',postal:'ZIP code',phone:'Phone number'},GB:{state:'County / Region',postal:'Postcode',phone:'Phone number'},CA:{state:'Province',postal:'Postal code',phone:'Phone number'},AU:{state:'State / Territory',postal:'Postcode',phone:'Phone number'},DE:{state:'State / Region',postal:'Postal code',phone:'Phone number'},FR:{state:'Region',postal:'Postal code',phone:'Phone number'},IT:{state:'Province / Region',postal:'Postal code',phone:'Phone number'},ES:{state:'Province / Region',postal:'Postal code',phone:'Phone number'},NL:{state:'Province',postal:'Postal code',phone:'Phone number'},GH:{state:'Region',postal:'Postal code',phone:'Phone number'},ZA:{state:'Province',postal:'Postal code',phone:'Phone number'},KE:{state:'County',postal:'Postal code',phone:'Phone number'},AE:{state:'Emirate',postal:'Postal code (optional)',phone:'Phone number'},JP:{state:'Prefecture',postal:'Postal code',phone:'Phone number'}};
