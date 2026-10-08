@@ -1,4 +1,8 @@
 import express from "express";
+import { createRequire } from "node:module";
+const checkoutRequire = createRequire(import.meta.url);
+const { createRoutes: createCheckout2Routes } = checkoutRequire('./checkout2/routes.cjs');
+const { previewConfig } = checkoutRequire('./checkout2/preview-config.cjs');
 import session from "express-session";
 import bcrypt from "bcryptjs";
 import Database from "better-sqlite3";
@@ -21,6 +25,16 @@ dotenv.config();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
 const app = express();
+const checkout2Config = previewConfig();
+
+// Preview must never fall through to legacy payment routes or real wallet funding.
+app.use((req,res,next) => {
+  if ((checkout2Config.preview || checkout2Config.local) &&
+      (req.path.startsWith('/api/payments/') || /\/wallet\/(fund|pay|checkout)(\/|$)/.test(req.path))) {
+    return res.status(403).json({error:'LEGACY_PAYMENTS_DISABLED',message:'Use Checkout 2.0 test payments on Preview.'});
+  }
+  next();
+});
 
 app.set("trust proxy", 1);
 
@@ -59,6 +73,7 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use('/api/checkout2/webhook', express.raw({ type: 'application/json', limit: '256kb' }));
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false }));
 
@@ -359,6 +374,24 @@ async function refreshProductCache(force = false) {
 function productById(id) {
   return productCache.find(product => Number(product.id) === Number(id)) || null;
 }
+
+app.use('/api/checkout2', createCheckout2Routes({
+  config: checkout2Config,
+  sessionUser: req => req.session?.user,
+  // Payments fail closed when the authoritative catalog cannot be read.
+  catalog: async lines => {
+    if (!grimSupabase || !Array.isArray(lines)) throw new Error('Test catalog unavailable');
+    const {data,error}=await grimSupabase.from('products').select('id,name,color,price,active');
+    if(error||!Array.isArray(data))throw new Error('Test catalog unavailable');
+    const result=Object.create(null);
+    for(const p of data)result[String(p.id)]={active:Number(p.active)===1,priceKobo:Number(p.price)*100,name:p.name,color:p.color};
+    return result;
+  },
+  customerProfile: async customer => {
+    const {data,error}=await grimSupabase.from('customers').select('checkout_preferences,shipping_address').eq('id',customer.id).maybeSingle();
+    if(error)throw error;return data;
+  }
+}));
 
 async function buildAuthoritativeCart(items) {
   await refreshProductCache();
@@ -950,7 +983,7 @@ app.use((error, req, res, _next) => {
 
 const port = Number(process.env.PORT || 3000);
 
-if (!process.env.VERCEL) {
+if (!process.env.VERCEL && process.env.GRIM_NO_LISTEN !== 'true') {
   app.listen(port, () => {
     console.log(`[GRIM] Store running on http://localhost:${port}`);
   });

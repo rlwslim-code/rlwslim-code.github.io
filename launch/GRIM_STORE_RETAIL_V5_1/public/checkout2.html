@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#0b0b0d" />
+    <title>GRIM | Checkout 2.0</title>
+    <link rel="stylesheet" href="/checkout2.css" />
+    <script src="/checkout2.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <a href="/" aria-label="GRIM home"
+        ><img src="/assets/grim-primary.png" alt="GRIM" /></a
+      ><a href="/shop.html">BACK TO SHOP</a>
+    </header>
+    <main>
+      <div class="intro">
+        <p class="eyebrow">GRIM CHECKOUT 2.0 · TEST PREVIEW</p>
+        <h1>YOUR NEXT CHAPTER.</h1>
+        <p>
+          Test payments only. Enter test card details on Paystack’s secure page.
+        </p>
+      </div>
+      <p id="status" role="status" aria-live="polite">Loading checkout…</p>
+      <section id="signin" hidden>
+        <h2>SIGN IN TO CONTINUE</h2>
+        <p>Use an account created in the test environment.</p>
+        <form id="loginForm">
+          <label
+            >Email<input
+              name="email"
+              type="email"
+              autocomplete="username"
+              required /></label
+          ><label
+            >Password<input
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required /></label
+          ><button>SIGN IN</button>
+        </form>
+        <form id="codeForm" hidden>
+          <label
+            >Email verification code<input
+              name="code"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              pattern="[0-9]{6}"
+              maxlength="6"
+              required /></label
+          ><button>VERIFY &amp; CONTINUE</button>
+        </form>
+        <a href="/">CREATE AN ACCOUNT / GOOGLE SIGN-IN</a>
+      </section>
+      <section id="recovery" hidden>
+        <h2>RECOVER YOUR PAYMENT</h2>
+        <p>Check or resume the existing payment before starting another one.</p>
+        <div id="pending"></div>
+      </section>
+      <div class="layout" id="checkoutLayout" hidden>
+        <form id="checkoutForm">
+          <section>
+            <h2>01 / YOUR DETAILS</h2>
+            <p id="accountEmail"></p>
+            <div class="row">
+              <label
+                >First name<input
+                  name="firstName"
+                  autocomplete="given-name"
+                  maxlength="80"
+                  required /></label
+              ><label
+                >Last name<input
+                  name="lastName"
+                  autocomplete="family-name"
+                  maxlength="80"
+                  required
+              /></label>
+            </div>
+            <label
+              >Phone with country code<input
+                name="phone"
+                type="tel"
+                autocomplete="tel"
+                maxlength="40"
+                placeholder="+234…"
+                required
+            /></label>
+          </section>
+          <section>
+            <h2>02 / DELIVERY</h2>
+            <label
+              >Saved address<select id="savedShipping">
+                <option value="">Enter a new address</option>
+              </select></label
+            ><label
+              >Country<select
+                name="shippingCountry"
+                autocomplete="shipping country"
+              >
+                <option value="NG">Nigeria</option>
+                <option value="US">United States</option>
+                <option value="GB">United Kingdom</option>
+                <option value="CA">Canada</option>
+                <option value="GH">Ghana</option>
+                <option value="ZA">South Africa</option>
+                <option value="KE">Kenya</option>
+                <option value="AE">United Arab Emirates</option>
+              </select></label
+            ><label
+              >Street address<input
+                name="shippingAddress"
+                autocomplete="shipping address-line1"
+                maxlength="250"
+                required /></label
+            ><label
+              >Apartment / suite (optional)<input
+                name="shippingApartment"
+                autocomplete="shipping address-line2"
+                maxlength="100"
+            /></label>
+            <div class="row">
+              <label
+                >City<input
+                  name="shippingCity"
+                  autocomplete="shipping address-level2"
+                  maxlength="100"
+                  required /></label
+              ><label
+                >State / province<input
+                  name="shippingState"
+                  autocomplete="shipping address-level1"
+                  maxlength="100"
+                  required
+              /></label>
+            </div>
+            <label
+              >Postal code (optional)<input
+                name="shippingPostal"
+                autocomplete="shipping postal-code"
+                maxlength="30"
+            /></label>
+          </section>
+          <section>
+            <h2>03 / BILLING</h2>
+            <label class="choice"
+              ><input id="billingSame" type="checkbox" checked />Same as
+              delivery address</label
+            >
+            <div id="billingFields" hidden>
+              <label
+                >Saved billing address<select id="savedBilling">
+                  <option value="">Enter a new address</option>
+                </select></label
+              ><label
+                >Country<select
+                  name="billingCountry"
+                  autocomplete="billing country"
+                >
+                  <option value="NG">Nigeria</option>
+                  <option value="US">United States</option>
+                  <option value="GB">United Kingdom</option>
+                  <option value="CA">Canada</option>
+                  <option value="GH">Ghana</option>
+                  <option value="ZA">South Africa</option>
+                  <option value="KE">Kenya</option>
+                  <option value="AE">United Arab Emirates</option>
+                </select></label
+              ><label
+                >Street address<input
+                  name="billingAddress"
+                  autocomplete="billing address-line1"
+                  maxlength="250" /></label
+              ><label
+                >Apartment / suite (optional)<input
+                  name="billingApartment"
+                  autocomplete="billing address-line2"
+                  maxlength="100"
+              /></label>
+              <div class="row">
+                <label
+                  >City<input
+                    name="billingCity"
+                    autocomplete="billing address-level2"
+                    maxlength="100" /></label
+                ><label
+                  >State / province<input
+                    name="billingState"
+                    autocomplete="billing address-level1"
+                    maxlength="100"
+                /></label>
+              </div>
+              <label
+                >Postal code (optional)<input
+                  name="billingPostal"
+                  autocomplete="billing postal-code"
+                  maxlength="30"
+              /></label>
+            </div>
+            <label class="choice"
+              ><input id="saveBilling" type="checkbox" />Save this billing
+              address to my test account</label
+            >
+          </section>
+          <section>
+            <h2>04 / PAYMENT</h2>
+            <label class="choice method"
+              ><input type="radio" name="method" value="card" checked /><span
+                >PAYSTACK TEST CARD<small
+                  >Continue to Paystack for secure card entry.</small
+                ></span
+              ></label
+            ><label class="choice method"
+              ><input
+                id="walletMethod"
+                type="radio"
+                name="method"
+                value="wallet"
+              /><span
+                >GRIM TEST WALLET<small id="walletBalance"
+                  >Loading test balance…</small
+                ></span
+              ></label
+            >
+            <p class="note">
+              All totals settle in NGN. This Preview uses test wallet balances.
+            </p>
+            <button id="payButton">CONTINUE TO TEST PAYMENT</button
+            ><button type="button" id="retryWallet" hidden>
+              RETRY EXISTING WALLET CHECKOUT
+            </button>
+          </section>
+        </form>
+        <aside>
+          <section>
+            <h2>YOUR BAG</h2>
+            <div id="items"></div>
+            <dl>
+              <div>
+                <dt>Subtotal</dt>
+                <dd id="subtotal"></dd>
+              </div>
+              <div>
+                <dt>Delivery</dt>
+                <dd id="delivery"></dd>
+              </div>
+              <div class="total">
+                <dt>Total · NGN</dt>
+                <dd id="total"></dd>
+              </div>
+            </dl>
+            <p class="note">Prices are confirmed by GRIM before payment.</p>
+          </section>
+          <p class="motto">TIME IS BORROWED.<br />LEGACY IS EARNED.</p>
+        </aside>
+      </div>
+    </main>
+    <footer>GRIM · RAV’KAEL</footer>
+  </body>
+</html>
