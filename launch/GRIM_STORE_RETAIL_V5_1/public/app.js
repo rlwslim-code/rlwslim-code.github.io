@@ -776,9 +776,9 @@ if (!finalCity && finalPostcode) {
   E('payWallet').onclick=async()=>{
     const msg=E('paymentMessage'); const btn=E('payWallet'); btn.disabled=true; msg.textContent='Checking GRIM Wallet…';
     try{
-      const payload={name:`${E('coFirst').value.trim()} ${E('coLast').value.trim()}`.trim(),phone:E('coPhone').value.trim(),address:[E('coAddress').value.trim(),E('coApartment').value.trim(),E('coCity').value.trim(),E('coState').value.trim(),E('coPostal').value.trim()].filter(Boolean).join(', '),country:E('coCountry').value||'NG',currency:'NGN',checkoutKey:'web_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,12),items:cart.map(i=>({id:Number(i.id),qty:Math.max(1,Number(i.qty||1)),size:String(i.size||'M')}))};
+      const payload={name:`${E('coFirst').value.trim()} ${E('coLast').value.trim()}`.trim(),phone:E('coPhone').value.trim(),address:[E('coAddress').value.trim(),E('coApartment').value.trim(),E('coCity').value.trim(),E('coState').value.trim(),E('coPostal').value.trim()].filter(Boolean).join(', '),country:E('coCountry').value||'NG',currency:'NGN',checkoutKey:(sessionStorage.getItem('grimWalletCheckoutKey')||(()=>{const key='web_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,12);sessionStorage.setItem('grimWalletCheckoutKey',key);return key})()),items:cart.map(i=>({id:Number(i.id),qty:Math.max(1,Number(i.qty||1)),size:String(i.size||'M')}))};
       const r=await fetch('/api/v8/wallet/checkout',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const j=await r.json().catch(()=>({})); if(!r.ok)throw new Error(j.error||'Wallet checkout failed.');
-      msg.textContent=`Wallet payment complete. Order #${j.orderId}.`; cart=[]; save(); draw();
+      msg.textContent=`Wallet payment complete. Order #${j.orderId}.`; sessionStorage.removeItem('grimWalletCheckoutKey'); cart=[]; save(); draw();
     }catch(e){msg.textContent=e.message||'Wallet checkout failed.';btn.disabled=false}
   };
 
@@ -812,20 +812,20 @@ async function grimVerifyPayment(reference) {
   const response=await fetch('/api/payments/verify',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({reference})});
   const result=await response.json().catch(()=>({}));
   if(result.paystackPaid===true && result.orderStored===false){
-    if(msg)msg.textContent='Payment received but order syncing needs support. Do not pay again. Reference: '+reference;
+    if(msg)msg.textContent='Paystack confirmed payment, but GRIM could not save the order. Do not pay again. Reference: '+reference;
     return;
   }
   if(response.ok && result.verified===true && result.orderStored===true){
     if(msg)msg.textContent='Payment complete ✓ Reference: '+reference;
     localStorage.removeItem('grimPendingPayment');cart=[];save();draw();return;
   }
-  if(msg)msg.textContent=result.error||('Payment not confirmed. Do not retry until you check reference: '+reference);
+  if(msg)msg.textContent=(result.paystackPaid===true?'Paystack received payment but verification needs review. Do not pay again. Reference: '+reference:(result.error||'Payment not confirmed. Do not pay again until status is checked. Reference: '+reference));
 }
 async function startGrimPayment(method) {
   if(grimPaymentStarting)return;
   const msg=E('paymentMessage'),btn=E(method==='card'?'payCard':'payTransfer');
   const pending=localStorage.getItem('grimPendingPayment');
-  if(pending){msg.textContent='A payment is awaiting confirmation. Do not pay again. Reference: '+pending;return;}
+  if(pending){try{await grimVerifyPayment(pending);}catch(e){msg.textContent='Unable to check previous payment. Do not pay again. Reference: '+pending;}return;}
   grimPaymentStarting=true;if(btn)btn.disabled=true;
   try {
     msg.textContent='Preparing secure payment…';
@@ -862,6 +862,8 @@ async function grimCheckReturnedPayment(){
 
 buildGrimCheckout();
 grimCheckReturnedPayment();
+// An existing reference must be reconciled, never replaced by a new charge.
+window.GRIM_retryPendingPayment=async()=>{const reference=localStorage.getItem('grimPendingPayment');if(!reference)return;try{await grimVerifyPayment(reference);}catch(e){const msg=E('paymentMessage');if(msg)msg.textContent='Could not check payment. Do not pay again. Reference: '+reference;}};
 
 (function(){
  const labels={NG:{state:'State',postal:'Postal code',phone:'Phone number'},US:{state:'State',postal:'ZIP code',phone:'Phone number'},GB:{state:'County / Region',postal:'Postcode',phone:'Phone number'},CA:{state:'Province',postal:'Postal code',phone:'Phone number'},AU:{state:'State / Territory',postal:'Postcode',phone:'Phone number'},DE:{state:'State / Region',postal:'Postal code',phone:'Phone number'},FR:{state:'Region',postal:'Postal code',phone:'Phone number'},IT:{state:'Province / Region',postal:'Postal code',phone:'Phone number'},ES:{state:'Province / Region',postal:'Postal code',phone:'Phone number'},NL:{state:'Province',postal:'Postal code',phone:'Phone number'},GH:{state:'Region',postal:'Postal code',phone:'Phone number'},ZA:{state:'Province',postal:'Postal code',phone:'Phone number'},KE:{state:'County',postal:'Postal code',phone:'Phone number'},AE:{state:'Emirate',postal:'Postal code (optional)',phone:'Phone number'},JP:{state:'Prefecture',postal:'Postal code',phone:'Phone number'}};
