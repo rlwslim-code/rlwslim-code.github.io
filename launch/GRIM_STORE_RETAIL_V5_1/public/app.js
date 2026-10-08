@@ -261,6 +261,50 @@ grimConfirm?.addEventListener('blur', hideGrimPasswordRules);
 
 updateGrimPasswordRules();
 setMode('login');
+// GRIM 2FA challenge: keep the user signed out until server-side code verification succeeds.
+function grimTwoFactorView(show, hint='') {
+  const section=E('grimTwoFactor'), form=E('authForm'), tabs=document.querySelector('#auth .tabs');
+  if(section)section.hidden=!show;
+  if(form)form.hidden=show;
+  if(tabs)tabs.hidden=show;
+  if(show){
+    if(E('grimTwoFactorHint'))E('grimTwoFactorHint').textContent='Enter the six-digit code sent to '+(hint||'your email')+'.';
+    if(E('grimTwoFactorCode')){E('grimTwoFactorCode').value='';E('grimTwoFactorCode').focus();}
+    if(E('grimTwoFactorMsg'))E('grimTwoFactorMsg').textContent='';
+  }
+}
+function grimFinishAuthentication(user){
+  if(E('acct'))E('acct').textContent=(user?.name||'ACCOUNT').toUpperCase();
+  if(E('aPass'))E('aPass').value='';
+  grimTwoFactorView(false);
+  closeAuth();
+}
+if(E('grimTwoFactorForm'))E('grimTwoFactorForm').onsubmit=async e=>{
+  e.preventDefault();
+  const code=E('grimTwoFactorCode')?.value.trim()||'',msg=E('grimTwoFactorMsg'),button=E('grimTwoFactorVerify');
+  if(!/^\d{6}$/.test(code)){if(msg)msg.textContent='Enter the six-digit code.';return;}
+  button.disabled=true;if(msg)msg.textContent='Verifying your code…';
+  try{
+    const r=await fetch('/api/auth/2fa/verify',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){if(msg)msg.textContent=j.error||'Verification failed. Please try again.';return;}
+    const me=await fetch('/api/me',{credentials:'include',cache:'no-store'});
+    const user=me.ok?await me.json().catch(()=>null):null;
+    if(!user?.email){if(msg)msg.textContent='Code accepted, but the session could not be confirmed. Please sign in again.';return;}
+    grimFinishAuthentication(user);
+  }catch(err){if(msg)msg.textContent='Connection problem. Please try again.';}
+  finally{button.disabled=false;}
+};
+if(E('grimTwoFactorResend'))E('grimTwoFactorResend').onclick=async()=>{
+  const button=E('grimTwoFactorResend'),msg=E('grimTwoFactorMsg');button.disabled=true;
+  try{
+    const r=await fetch('/api/auth/2fa/resend',{method:'POST',credentials:'include'});
+    const j=await r.json().catch(()=>({}));
+    if(msg)msg.textContent=r.ok?'A new code has been sent.':(j.error||'Could not resend code.');
+  }catch(err){if(msg)msg.textContent='Connection problem. Please try again.';}
+  finally{button.disabled=false;}
+};
+if(E('grimTwoFactorBack'))E('grimTwoFactorBack').onclick=()=>{grimTwoFactorView(false);if(E('aPass'))E('aPass').value='';};
 if(E('authForm')) E('authForm').onsubmit = async e => {
   e.preventDefault();
 
@@ -340,18 +384,19 @@ if(E('authForm')) E('authForm').onsubmit = async e => {
       return;
     }
 
-    if(msg){
-      msg.textContent =
-        mode === 'register'
-          ? 'ACCOUNT CREATED.'
-          : 'WELCOME BACK.';
+    if(mode==='login' && j?.requiresTwoFactor===true){
+      grimTwoFactorView(true,j.emailHint);
+      return;
     }
-
-    if(E('acct') && j.name){
-      E('acct').textContent = j.name.toUpperCase();
+    // A successful API response is not proof of an authenticated session.
+    const meResponse=await fetch('/api/me',{credentials:'include',cache:'no-store'});
+    const verifiedUser=meResponse.ok?await meResponse.json().catch(()=>null):null;
+    if(!verifiedUser?.email){
+      if(msg)msg.textContent='Account request succeeded, but your session could not be confirmed. Please try again.';
+      return;
     }
-
-    setTimeout(closeAuth, 600);
+    if(msg)msg.textContent=mode==='register'?'ACCOUNT CREATED.':'WELCOME BACK.';
+    grimFinishAuthentication(verifiedUser);
 
   }catch(error){
     console.error('GRIM account error:', error);

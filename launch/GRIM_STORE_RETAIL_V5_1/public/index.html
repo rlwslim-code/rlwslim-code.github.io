@@ -26,6 +26,7 @@
   <link rel="stylesheet" href="/style.css?v=20261007-final2">
   <link rel="stylesheet" href="/grim-frontend-stable.css?v=20261007-final2">
   <style>
+  #auth [hidden]{display:none!important}
   #auth input,#auth textarea,#auth select,#authModal input,#authModal textarea,#authModal select{color:#111!important;background:#fffaf3!important;-webkit-text-fill-color:#111!important;opacity:1!important}
   #auth input::placeholder,#authModal input::placeholder{color:#777!important;opacity:1!important}
   </style>
@@ -147,8 +148,21 @@
         <input id="aConfirm" type="password" placeholder="Confirm password" autocomplete="new-password">
         <button id="grimGoogleButton" class="grim-google-btn" type="button"><span class="grim-google-mark">G</span> CONTINUE WITH GOOGLE</button>
         <button class="dark full" type="submit">CONTINUE</button>
-        <p id="aMsg"></p>
+        <p id="aMsg" role="status" aria-live="polite"></p>
       </form>
+      <section id="grimTwoFactor" hidden aria-label="Verify GRIM sign-in" style="margin-top:20px;text-align:center">
+        <div style="color:#b89a53;letter-spacing:3px;font-size:12px;font-weight:700">GRIM SECURITY</div>
+        <h3 style="margin:14px 0">VERIFY YOUR IDENTITY</h3>
+        <p id="grimTwoFactorHint" style="line-height:1.6">Enter the six-digit code sent to your email.</p>
+        <form id="grimTwoFactorForm">
+          <label for="grimTwoFactorCode" style="display:block;text-align:left;font-size:12px;letter-spacing:2px;margin:15px 0 8px">SIX-DIGIT CODE</label>
+          <input id="grimTwoFactorCode" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required placeholder="000000" aria-label="Six-digit sign-in code" style="width:100%;box-sizing:border-box;text-align:center;letter-spacing:8px;font-size:23px;background:#fffaf3;color:#111;padding:15px">
+          <button id="grimTwoFactorVerify" class="dark full" type="submit" style="margin-top:16px">VERIFY &amp; CONTINUE</button>
+        </form>
+        <button id="grimTwoFactorResend" type="button" style="margin:18px 10px;background:transparent;border:0;color:#987b35;text-decoration:underline;cursor:pointer">RESEND CODE</button>
+        <button id="grimTwoFactorBack" type="button" style="margin:18px 10px;background:transparent;border:0;color:#987b35;text-decoration:underline;cursor:pointer">BACK TO SIGN IN</button>
+        <p id="grimTwoFactorMsg" role="status" aria-live="polite"></p>
+      </section>
     </div>
   </div>
 
@@ -193,7 +207,7 @@
   <button class="care-fab" onclick="openHelp('general')"><span>?</span> CUSTOMER CARE</button>
 
   <script>window.GRIM_DESIGNS=Array.from({length:26},(_,i)=>`/assets/designs/design-${String(i+1).padStart(2,'0')}.jpeg`);</script>
-  <script src="/app.js?v=20261007-final2"></script>
+  <script src="/app.js?v=20261008-2fa1"></script>
   <script src="/grim-frontend-stable.js?v=20261007-final2"></script>
   <script src="/grim-checkout/secure-payments.js?v=20261007-final2"></script>
   <script src="/grim-session/checkout-session.js?v=20261007-final2"></script>
