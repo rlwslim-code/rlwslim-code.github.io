@@ -95,7 +95,16 @@ function verifyProvider({ expected, provider }) {
     provider.domain !== "test" ||
     provider.currency !== "NGN" ||
     provider.reference !== expected.reference ||
-    provider.amount !== expected.totalKobo ||
+    !(
+  provider.amount === expected.totalKobo ||
+  (
+    Number.isSafeInteger(provider.requested_amount) &&
+    provider.requested_amount === expected.totalKobo &&
+    Number.isSafeInteger(provider.fees) &&
+    provider.fees > 0 &&
+    provider.amount === provider.requested_amount + provider.fees
+  )
+) ||
     !Number.isSafeInteger(provider.amount) ||
     !provider.id
   )
