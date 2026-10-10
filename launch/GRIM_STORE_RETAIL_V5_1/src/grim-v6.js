@@ -437,16 +437,18 @@ return res.json({
       const user = await customerByEmail(session.email);
       if (!user) return res.status(404).json({error:"Account not found."});
       const { data: txs, error: txErr } = await supabase.from("wallet_transactions")
-        .select("id,type,amount,reference,status,note,created_at")
+        .select("id,currency,transaction_type,amount_minor,payment_reference,status,description,created_at")
         .eq("customer_id", user.id).order("created_at",{ascending:false}).limit(50);
       if (txErr) throw txErr;
+      const {data:walletAccount,error:walletError}=await supabase.from("wallet_accounts").select("balance_minor,status").eq("customer_id",user.id).eq("currency","NGN").maybeSingle();
+      if(walletError) throw walletError;
       const { data: orders, error: orderErr } = await supabase.from("orders")
         .select("*").eq("email", user.email).order("created_at",{ascending:false}).limit(30);
       if (orderErr) throw orderErr;
       res.json({
         user: sessionUser(user),
-        wallet: { balance: Number(user.wallet_balance || 0), currency:"NGN" },
-        transactions: txs || [],
+        wallet: { balance: Number(walletAccount?.balance_minor || 0)/100, currency:"NGN", active:walletAccount?.status === "active" },
+        transactions: (txs || []).filter(t=>t.currency === "NGN").map(t=>({...t,type:t.transaction_type,amount:Number(t.amount_minor)/100,reference:t.payment_reference || t.id,note:t.description})),
         orders: orders || []
       });
     } catch(e) {

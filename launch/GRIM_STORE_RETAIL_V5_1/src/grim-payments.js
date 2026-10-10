@@ -415,7 +415,7 @@ export function installGrimPayments(
       ORIGINS.has(req.headers.origin) ||
       req.headers.origin === previewOrigin
         ? req.headers.origin
-        : 'https://rlwslim-code.github.io';
+        : 'https://www.grimwear.store';
 
     const orderJSON = JSON.stringify(order);
 

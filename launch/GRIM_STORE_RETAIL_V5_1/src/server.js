@@ -1,4 +1,9 @@
 import express from "express";
+import { createRequire } from "node:module";
+const checkoutRequire = createRequire(import.meta.url);
+const { createRoutes: createCheckout2Routes } = checkoutRequire('./checkout2/routes.cjs');
+const { previewConfig } = checkoutRequire('./checkout2/preview-config.cjs');
+const { createRuntime } = checkoutRequire('./checkout2/runtime.cjs');
 import session from "express-session";
 import bcrypt from "bcryptjs";
 import Database from "better-sqlite3";
@@ -21,6 +26,20 @@ dotenv.config();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
 const app = express();
+const checkout2Config = previewConfig();
+
+// Preview must never fall through to legacy payment routes or real wallet funding.
+app.use((req,res,next) => {
+  if ((checkout2Config.preview || checkout2Config.local) &&
+      (req.path.startsWith('/api/payments/') || /\/wallet\/(fund|pay|checkout)(\/|$)/.test(req.path))) {
+    return res.status(403).json({error:'LEGACY_PAYMENTS_DISABLED',message:'Use Checkout 2.0 test payments on Preview.'});
+  }
+  if (checkout2Config.production && checkout2Config.enabled &&
+      ((req.path.startsWith('/api/payments/') && !/\/(verify|status)(\/|$)/.test(req.path)) || req.path === '/api/v8/wallet/checkout' || req.path === '/api/orders')) {
+    return res.status(409).json({error:'CHECKOUT2_REQUIRED',message:'Open GRIM Checkout 2.0 to include verified delivery.'});
+  }
+  next();
+});
 
 app.set("trust proxy", 1);
 
@@ -59,6 +78,7 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use('/api/checkout2/webhook', express.raw({ type: 'application/json', limit: '256kb' }));
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false }));
 
@@ -359,6 +379,17 @@ async function refreshProductCache(force = false) {
 function productById(id) {
   return productCache.find(product => Number(product.id) === Number(id)) || null;
 }
+
+const checkout2Runtime = createRuntime({config:checkout2Config,supabase:grimSupabase});
+app.use('/api/admin/checkout2', checkout2Runtime.admin);
+app.use('/api/checkout2', createCheckout2Routes({
+  config: checkout2Config,
+  ...checkout2Runtime,
+  customerProfile: async customer => {
+    const {data,error}=await grimSupabase.from('customers').select('checkout_preferences,shipping_address').eq('id',customer.id).maybeSingle();
+    if(error)throw error;return data;
+  }
+}));
 
 async function buildAuthoritativeCart(items) {
   await refreshProductCache();
@@ -768,9 +799,7 @@ app.post("/api/orders", async (req, res) => {
         address: order.address,
         total: order.total,
         status: "new",
-        items: clean,
-        country: country || "NG",
-        currency: currency || "NGN"
+        items_json: JSON.stringify(clean)
       };
 
       const { data, error } = await grimSupabase
@@ -952,7 +981,7 @@ app.use((error, req, res, _next) => {
 
 const port = Number(process.env.PORT || 3000);
 
-if (!process.env.VERCEL) {
+if (!process.env.VERCEL && process.env.GRIM_NO_LISTEN !== 'true') {
   app.listen(port, () => {
     console.log(`[GRIM] Store running on http://localhost:${port}`);
   });

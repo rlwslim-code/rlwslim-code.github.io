@@ -32,7 +32,7 @@ function customerName(order) {
 async function findExisting(reference) {
   const { data, error } = await grimSupabase
     .from("orders")
-    .select("id,payment_reference,status")
+    .select("id,payment_reference,status,payment_status")
     .eq("payment_reference", reference)
     .maybeSingle();
 
@@ -57,6 +57,7 @@ export async function finalizePaidOrder({ order, reference } = {}) {
   const existing = await findExisting(safeReference);
 
   if (existing) {
+    if (existing.payment_status !== "paid") throw new Error("Reference exists but payment is not marked paid. Manual reconciliation required.");
     return {
       ...existing,
       duplicate: true
@@ -79,17 +80,15 @@ export async function finalizePaidOrder({ order, reference } = {}) {
     address: fullAddress(order),
     total: Math.round(amountKobo / 100),
     status: "paid",
-    items: Array.isArray(order.items) ? order.items : [],
-    country: clean(order.delivery?.country || "NG", 2),
-    currency: clean(order.currency || "NGN", 8),
+    items_json: JSON.stringify(Array.isArray(order.items) ? order.items : []),
     payment_reference: safeReference,
-    paid_at: new Date().toISOString()
+    payment_status: "paid"
   };
 
   const { data, error } = await grimSupabase
     .from("orders")
     .insert(payload)
-    .select("id,payment_reference,status")
+    .select("id,payment_reference,status,payment_status")
     .single();
 
   if (!error && data) {
