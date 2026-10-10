@@ -13,6 +13,16 @@
      $('providerAddresses').textContent=addresses.length ? addresses.map(a=>`Code: ${a.addressCode} — ${a.city}, ${a.state} (${a.formattedAddress})`).join('\n') : 'No validated Nigerian addresses returned. Your saved sender profile may still need API address validation.';
      $('providerCategories').textContent=categories.length ? categories.map(c=>`${c.name}: ${c.categoryId}`).join('\n') : 'No shipping categories returned.';
      state.textContent=`Provider responded. Sender code configured in Vercel: ${setup.senderCodeConfigured?'yes':'no'}; category configured: ${setup.categoryConfigured?'yes':'no'}. Courier quotes: ${setup.quoteConfigured?'configured':'not configured'}.`;
+          if (setup.diagnostics) {
+       const d = setup.diagnostics;
+
+       state.textContent +=
+         ` | Shipbubble addresses returned: ${d.providerAddressCount}` +
+         ` | Valid address codes: ${d.addressesWithValidCodes}` +
+         ` | Nigerian addresses: ${d.nigerianAddressCount}` +
+         ` | Rejected by code: ${d.excludedByCode}` +
+         ` | Rejected by country: ${d.excludedByCountry}`;
+     }
    }catch(e){state.textContent=e.message||'Unable to retrieve provider setup. Sign in to the GRIM admin panel and try again.';}
  };
  const dimensions=f=>Object.fromEntries(['length','width','height'].map(k=>[k,Number(f.elements[k].value)]));
