@@ -98,8 +98,40 @@ function createProviderSetup({apiKey, fetchImpl = globalThis.fetch, timeoutMs = 
     return {
       addresses: normalizeAddresses(addresses),
       categories: normalizeCategories(categories),
+      diagnostics: diagnoseAddresses(addresses),
     };
   };
 }
+function diagnoseAddresses(payload) {
+  const items = Array.isArray(payload?.results)
+    ? payload.results
+    : [];
 
-module.exports = {createProviderSetup, normalizeAddresses, normalizeCategories, ShipbubbleSetupError};
+  const withCodes = items.filter(item =>
+    positiveCode(item?.address_code)
+  );
+
+  const nigeriaMatches = withCodes.filter(item => {
+    const a = item.address_data || item;
+
+    return (
+      safeText(a.country_code, 4).toUpperCase() === 'NG' ||
+      safeText(a.country, 80).toLowerCase() === 'nigeria'
+    );
+  });
+
+  return {
+    providerAddressCount: items.length,
+    addressesWithValidCodes: withCodes.length,
+    nigerianAddressCount: nigeriaMatches.length,
+    excludedByCode: items.length - withCodes.length,
+    excludedByCountry: withCodes.length - nigeriaMatches.length
+  };
+}
+module.exports = {
+  createProviderSetup,
+  normalizeAddresses,
+  normalizeCategories,
+  diagnoseAddresses,
+  ShipbubbleSetupError
+};
