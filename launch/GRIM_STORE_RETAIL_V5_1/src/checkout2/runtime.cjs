@@ -2,6 +2,7 @@
 const express=require('express');
 const {createShippingQuoteFlow,cartKey}=require('./shipping-quote-flow.cjs');
 const {ShippingError}=require('./shipbubble-quotes.cjs');
+const {createProviderSetup}=require('./shipbubble-setup.cjs');
 const {CheckoutError}=require('./checkout-core.cjs');
 function createRuntime({config,supabase,env=process.env}) {
   async function rows(table,columns) {
@@ -41,10 +42,13 @@ function createRuntime({config,supabase,env=process.env}) {
     return metrics;
   }
   let shippingQuoteFlow=null,shippingBlocker=null;
+  // This admin-only read endpoint is independent of the Checkout 2.0 launch
+  // flags and schema, so the merchant can find genuine provider codes safely.
+  const shipbubbleKey = config.production ? env.SHIPBUBBLE_API_KEY : env.GRIM_CHECKOUT2_SHIPBUBBLE_API_KEY;
   try {
     // A production-only key is never inherited by Preview. Quote APIs have no booking method.
     shippingQuoteFlow=createShippingQuoteFlow({catalog,measurementLoader,
-      apiKey:config.production ? env.SHIPBUBBLE_API_KEY : env.GRIM_CHECKOUT2_SHIPBUBBLE_API_KEY,
+      apiKey:shipbubbleKey,
       senderAddressCode:env.GRIM_SHIPPING_SENDER_ADDRESS_CODE,categoryId:env.GRIM_SHIPPING_CATEGORY_ID,
       signingSecret:env.GRIM_SHIPPING_SIGNING_SECRET || env.SESSION_SECRET});
   } catch(e) {shippingBlocker=e.code || 'SHIPPING_NOT_CONFIGURED';}
@@ -53,15 +57,21 @@ function createRuntime({config,supabase,env=process.env}) {
     res.set('Cache-Control','no-store');
     if(req.session?.admin!==true) return res.status(401).json({error:'ADMIN_REQUIRED'});
     if(req.method!=='GET' && req.headers.origin!==config.base) return res.status(403).json({error:'ORIGIN_REJECTED'});
-    if(!supabase) return res.status(503).json({error:'DATABASE_UNAVAILABLE'});
+    if(!supabase && req.path !== '/shipping/provider-setup') return res.status(503).json({error:'DATABASE_UNAVAILABLE'});
     next();
   });
-  const wrap=fn=>async(req,res)=>{try{await fn(req,res);}catch(e){res.status(e.status||503).json({error:e.code||'ADMIN_UNAVAILABLE',message:e instanceof CheckoutError ? e.message : 'Shipping configuration could not be saved or loaded.'});}};
+  const wrap=fn=>async(req,res)=>{try{await fn(req,res);}catch(e){res.status(e.status||503).json({error:e.code||'ADMIN_UNAVAILABLE',message:(e instanceof CheckoutError || e.name === 'ShipbubbleSetupError') ? e.message : 'Shipping configuration could not be saved or loaded.'});}};
   const dimension=x=>{
     if(!x || ['length','width','height'].some(k=>typeof x[k]!=='number'||!Number.isFinite(x[k])||x[k]<=0||x[k]>1000))
       throw new CheckoutError('INVALID_MEASUREMENTS','Enter measured positive package dimensions in centimetres.');
     return {length:x.length,width:x.width,height:x.height};
   };
+  admin.get('/shipping/provider-setup',wrap(async(_req,res)=>{
+    const provider = createProviderSetup({apiKey:shipbubbleKey});
+    const result = await provider();
+    res.json({...result, senderCodeConfigured:!!env.GRIM_SHIPPING_SENDER_ADDRESS_CODE,
+      categoryConfigured:!!env.GRIM_SHIPPING_CATEGORY_ID, quoteConfigured:!!shippingQuoteFlow});
+  }));
   admin.get('/shipping',wrap(async(_req,res)=>res.json({products:await rows('products','id,name'),
     productMeasurements:await rows('grim2_product_shipping','product_id,weight_kg,dimensions'),
     packages:await rows('grim2_package_shipping','cart_key,dimensions'),shippingBlocker})));
