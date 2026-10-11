@@ -67,7 +67,8 @@ function createRoutes({
     });
   });
   router.use(async (req, res, next) => {
-    if (!engine)
+    const standaloneQuoteRoute = req.path === '/shipping/hybrid/account' || req.path === '/shipping/hybrid/requests' || req.path === '/shipping/hybrid/request';
+    if (!engine && !standaloneQuoteRoute && req.path !== '/webhook')
       return res
         .status(503)
         .json({
@@ -76,7 +77,26 @@ function createRoutes({
         });
     if (req.path === "/webhook") return next();
     let u;
-    try { u = await sessionUser(req); } catch { return res.status(503).json({error:"ACCOUNT_UNAVAILABLE",message:"Your account could not be confirmed."}); }
+    try { u = await sessionUser(req); } catch (e) {
+      // Quote-only requests may use the existing storefront session even if the
+      // separate Checkout 2.0 customer adapter cannot access its database.
+      if (!standaloneQuoteRoute) return res.status(503).json({error:"ACCOUNT_UNAVAILABLE",message:"Your account could not be confirmed."});
+    }
+    if (standaloneQuoteRoute && (!u?.id || !u?.email)) {
+      const sessionCustomer = req.session?.user;
+      // Trust only the server-managed, signed Express session (never browser
+      // identifiers or request bodies). Keep normal Checkout 2.0 isolated.
+      if (sessionCustomer?.id != null && typeof sessionCustomer.email === 'string'
+          && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sessionCustomer.email)) {
+        u = {
+          id: sessionCustomer.id, email: sessionCustomer.email,
+          name: sessionCustomer.name || '',
+          firstName: sessionCustomer.firstName || '',
+          lastName: sessionCustomer.lastName || '',
+          phone: sessionCustomer.phone || ''
+        };
+      }
+    }
     if (!u?.id || !u?.email)
       return res
         .status(401)
@@ -118,6 +138,11 @@ function createRoutes({
       fail(res, e);
     }
   };
+  // Quote-only session endpoint. Avoids requiring Paystack/Checkout 2.0 engine.
+  // Requires the same authenticated customer session as all quote endpoints.
+  router.get('/shipping/hybrid/account', (req,res)=>{
+    res.json({customer:req.checkoutCustomer, quoteOnly:true});
+  });
   router.get(
     "/account",
     wrap(async (req, res) => {
