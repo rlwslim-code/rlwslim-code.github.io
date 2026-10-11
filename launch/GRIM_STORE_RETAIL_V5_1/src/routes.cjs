@@ -67,7 +67,7 @@ function createRoutes({
     });
   });
   router.use(async (req, res, next) => {
-    const standaloneQuoteRoute = req.path === '/shipping/hybrid/account' || req.path === '/shipping/hybrid/requests' || req.path === '/shipping/hybrid/request';
+    const standaloneQuoteRoute = req.path === '/shipping/hybrid/account' || req.path === '/shipping/hybrid/requests' || req.path === '/shipping/hybrid/request' || req.path === '/shipping/hybrid/pay';
     if (!engine && !standaloneQuoteRoute && req.path !== '/webhook')
       return res
         .status(503)
@@ -77,7 +77,26 @@ function createRoutes({
         });
     if (req.path === "/webhook") return next();
     let u;
-    try { u = await sessionUser(req); } catch { return res.status(503).json({error:"ACCOUNT_UNAVAILABLE",message:"Your account could not be confirmed."}); }
+    try { u = await sessionUser(req); } catch (e) {
+      // Quote-only requests may use the existing storefront session even if the
+      // separate Checkout 2.0 customer adapter cannot access its database.
+      if (!standaloneQuoteRoute) return res.status(503).json({error:"ACCOUNT_UNAVAILABLE",message:"Your account could not be confirmed."});
+    }
+    if (standaloneQuoteRoute && (!u?.id || !u?.email)) {
+      const sessionCustomer = req.session?.user;
+      // Trust only the server-managed, signed Express session (never browser
+      // identifiers or request bodies). Keep normal Checkout 2.0 isolated.
+      if (sessionCustomer?.id != null && typeof sessionCustomer.email === 'string'
+          && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sessionCustomer.email)) {
+        u = {
+          id: sessionCustomer.id, email: sessionCustomer.email,
+          name: sessionCustomer.name || '',
+          firstName: sessionCustomer.firstName || '',
+          lastName: sessionCustomer.lastName || '',
+          phone: sessionCustomer.phone || ''
+        };
+      }
+    }
     if (!u?.id || !u?.email)
       return res
         .status(401)
@@ -122,7 +141,7 @@ function createRoutes({
   // Quote-only session endpoint. Avoids requiring Paystack/Checkout 2.0 engine.
   // Requires the same authenticated customer session as all quote endpoints.
   router.get('/shipping/hybrid/account', (req,res)=>{
-    res.json({customer:req.checkoutCustomer});
+    res.json({customer:req.checkoutCustomer, quoteOnly:true});
   });
   router.get(
     "/account",
@@ -168,7 +187,28 @@ function createRoutes({
   }));
   router.get('/shipping/hybrid/requests',wrap(async(req,res)=>{
     if(!quoteRequests)throw new CheckoutError('FEATURE_DISABLED','Manual quote requests are disabled.',503);
-    res.json({requests:await quoteRequests.listCustomer(req.checkoutCustomer.id)});
+    const requests = await quoteRequests.listCustomer(req.checkoutCustomer.id);
+    // Never expose a global payment-enabled switch in a controlled live test.
+    // The button is offered only for the merchant-approved quotation UUID.
+    const canPay = !!(engine && config.ready && config.mode === 'live' &&
+      config.quotePaymentsEnabled === true && config.acceptNewOrders === true && config.quoteTestId);
+    res.json({ requests: requests.map(q => ({
+      ...q,
+      paymentEnabled: !!(canPay && String(q.id).toLowerCase() === config.quoteTestId &&
+        q.status === 'QUOTE_READY' && q.paymentStatus !== 'paid'),
+    })), paymentEnabled: false });
+  }));
+  // Live payment for an administrator-confirmed manual quote only.
+  // Separate feature flag: ordinary courier checkout does not unlock this route.
+  router.post('/shipping/hybrid/pay',wrap(async(req,res)=>{
+    if(config.mode!=='live'||config.quotePaymentsEnabled!==true||!config.ready||!quoteRequests||!config.acceptNewOrders)
+      throw new CheckoutError('PAYMENTS_LOCKED','GRIM quotation payments are not yet enabled.',503);
+    const quoteId=String(req.body?.quoteId||'');
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quoteId))
+      throw new CheckoutError('INVALID_QUOTE_ID','Choose a valid confirmed quotation.',400);
+    if(!config.quoteTestId || quoteId.toLowerCase() !== config.quoteTestId)
+      throw new CheckoutError('TEST_QUOTE_ONLY','Live payment is currently restricted to the approved merchant test quotation.',403);
+    res.json(await engine.startManualQuote({quoteId,customerId:req.checkoutCustomer.id,email:req.checkoutCustomer.email}));
   }));
   router.post(
     "/addresses",
@@ -183,15 +223,18 @@ function createRoutes({
   );
   router.post(
     "/start",
-    wrap(async (req, res) =>
+    wrap(async (req, res) => {
+      // Merchant-owned quote test must not activate ordinary checkout.
+      if (config.mode === 'live' && config.quoteTestId)
+        throw new CheckoutError('CONTROLLED_QUOTE_TEST_ONLY', 'Only the approved delivery quotation can start a payment during this test.', 403);
       res.json(
         await engine.start({
           ...req.body,
           customerId: req.checkoutCustomer.id,
           email: req.checkoutCustomer.email,
         }),
-      ),
-    ),
+      );
+    }),
   );
   router.post(
     "/confirm",
