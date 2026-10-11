@@ -19,7 +19,13 @@ router.get('/autocomplete', async (req, res) => {
   if (now - bucket.at > 60_000) { bucket.at = now; bucket.count = 0; }
   if (++bucket.count > 25) return res.status(429).json({ message: 'Too many searches. Try again shortly.' });
   addressLookupBuckets.set(ip,bucket);
-  const params = new URLSearchParams({ text, format: 'json', limit: '5', apiKey: key });
+   const params = new URLSearchParams({
+  text,
+  format: 'json',
+  limit: '5',
+  filter: `countrycode:${country}`,
+  apiKey: key
+});
   // Suggest addresses internationally, bias toward selected country where possible.
   // Preserve worldwide searches. Clients may specify country for future filtering.
   const controller = new AbortController();
@@ -31,7 +37,10 @@ router.get('/autocomplete', async (req, res) => {
     });
     if (!upstream.ok) return res.status(502).json({ message: 'Address provider unavailable. Enter address manually.' });
     const body = await upstream.json();
-    const results = (Array.isArray(body.results) ? body.results : []).slice(0,5).map(a => ({
+    const results = (Array.isArray(body.results) ? body.results : [])
+  .filter(a => String(a.country_code || '').toLowerCase() === country)
+  .slice(0, 5)
+  .map(a => ({
       formatted: String(a.formatted || '').slice(0,300),
       address: String(a.address_line1 || [a.housenumber,a.street].filter(Boolean).join(' ') || a.formatted || '').slice(0,250),
       city: String(a.city || a.town || a.village || a.county || '').slice(0,100),
