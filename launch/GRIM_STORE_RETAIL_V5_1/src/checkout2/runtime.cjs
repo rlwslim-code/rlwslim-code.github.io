@@ -3,6 +3,7 @@ const express=require('express');
 const {createShippingQuoteFlow,cartKey}=require('./shipping-quote-flow.cjs');
 const {ShippingError}=require('./shipbubble-quotes.cjs');
 const {createProviderSetup}=require('./shipbubble-setup.cjs');
+const {createSenderValidator}=require('./shipbubble-validate.cjs');
 const {CheckoutError}=require('./checkout-core.cjs');
 function createRuntime({config,supabase,env=process.env}) {
   async function rows(table,columns) {
@@ -60,7 +61,7 @@ function createRuntime({config,supabase,env=process.env}) {
     if(!supabase && req.path !== '/shipping/provider-setup') return res.status(503).json({error:'DATABASE_UNAVAILABLE'});
     next();
   });
-  const wrap=fn=>async(req,res)=>{try{await fn(req,res);}catch(e){res.status(e.status||503).json({error:e.code||'ADMIN_UNAVAILABLE',message:(e instanceof CheckoutError || e.name === 'ShipbubbleSetupError') ? e.message : 'Shipping configuration could not be saved or loaded.'});}};
+  const wrap=fn=>async(req,res)=>{try{await fn(req,res);}catch(e){res.status(e.status||503).json({error:e.code||'ADMIN_UNAVAILABLE',message:(e instanceof CheckoutError || e.name === 'ShipbubbleSetupError' || e.name === 'SenderValidationError') ? e.message : 'Shipping configuration could not be saved or loaded.'});}};
   const dimension=x=>{
     if(!x || ['length','width','height'].some(k=>typeof x[k]!=='number'||!Number.isFinite(x[k])||x[k]<=0||x[k]>1000))
       throw new CheckoutError('INVALID_MEASUREMENTS','Enter measured positive package dimensions in centimetres.');
@@ -71,6 +72,15 @@ function createRuntime({config,supabase,env=process.env}) {
     const result = await provider();
     res.json({...result, senderCodeConfigured:!!env.GRIM_SHIPPING_SENDER_ADDRESS_CODE,
       categoryConfigured:!!env.GRIM_SHIPPING_CATEGORY_ID, quoteConfigured:!!shippingQuoteFlow});
+  }));
+  // An explicit, authenticated admin action. Never run at startup or on page load.
+  // Shipbubble may debit a validation credit or charge for a successful validation.
+  admin.post('/shipping/validate-sender',wrap(async(req,res)=>{
+    if(req.body?.confirmValidation!==true)
+      throw new CheckoutError('VALIDATION_CONFIRMATION_REQUIRED','Confirm potential Shipbubble validation charges before submitting.',400);
+    const validator=createSenderValidator({apiKey:shipbubbleKey});
+    const validated=await validator(req.body?.sender);
+    res.json({validated:true,...validated,configuredInVercel:!!env.GRIM_SHIPPING_SENDER_ADDRESS_CODE});
   }));
   admin.get('/shipping',wrap(async(_req,res)=>res.json({products:await rows('products','id,name'),
     productMeasurements:await rows('grim2_product_shipping','product_id,weight_kg,dimensions'),

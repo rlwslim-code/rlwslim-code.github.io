@@ -13,9 +13,8 @@
      $('providerAddresses').textContent=addresses.length ? addresses.map(a=>`Code: ${a.addressCode} — ${a.city}, ${a.state} (${a.formattedAddress})`).join('\n') : 'No validated Nigerian addresses returned. Your saved sender profile may still need API address validation.';
      $('providerCategories').textContent=categories.length ? categories.map(c=>`${c.name}: ${c.categoryId}`).join('\n') : 'No shipping categories returned.';
      state.textContent=`Provider responded. Sender code configured in Vercel: ${setup.senderCodeConfigured?'yes':'no'}; category configured: ${setup.categoryConfigured?'yes':'no'}. Courier quotes: ${setup.quoteConfigured?'configured':'not configured'}.`;
-          if (setup.diagnostics) {
+     if (setup.diagnostics) {
        const d = setup.diagnostics;
-
        state.textContent +=
          ` | Shipbubble addresses returned: ${d.providerAddressCount}` +
          ` | Valid address codes: ${d.addressesWithValidCodes}` +
@@ -24,6 +23,24 @@
          ` | Rejected by country: ${d.excludedByCountry}`;
      }
    }catch(e){state.textContent=e.message||'Unable to retrieve provider setup. Sign in to the GRIM admin panel and try again.';}
+ };
+ // Sender validation is an explicit admin-only action. Nothing is sent until submitted.
+ $('senderValidationForm').onsubmit=async e=>{
+   e.preventDefault();
+   const form=e.currentTarget, output=$('senderValidationResult'), message=$('senderValidationStatus');
+   const submit=$('validateSenderButton');
+   if(!form.reportValidity()) return;
+   if(!window.confirm('Shipbubble may use a free address-validation credit or charge \u20a65 after the free credits. Validate this pickup address now?')) return;
+   const value=key=>String(form.elements.namedItem(key)?.value||'').trim();
+   const sender={name:value('name'),email:value('email'),phone:value('phone'),address:value('address')};
+   output.textContent=''; message.textContent='Validating with Shipbubble…';submit.disabled=true;
+   try {
+     const result=await api('shipping/validate-sender','POST',{sender,confirmValidation:true});
+     message.textContent='Sender address validated. No shipment was created.';
+     output.textContent=`Verified sender code: ${result.addressCode}\nVerified location: ${result.formattedAddress}\nCity / state: ${result.city}, ${result.state}\nNext: set GRIM_SHIPPING_SENDER_ADDRESS_CODE in Vercel Production to ${result.addressCode}. This page cannot edit Vercel environment variables.`;
+   } catch(err) {
+     message.textContent=err.message||'Unable to validate sender address.';
+   } finally {submit.disabled=false;}
  };
  const dimensions=f=>Object.fromEntries(['length','width','height'].map(k=>[k,Number(f.elements[k].value)]));
  async function load(){const data=await api('shipping');records=data.productMeasurements;const s=$('productMetrics').elements.product;s.replaceChildren();for(const p of data.products)s.add(new Option(p.name,String(p.id)));s.dispatchEvent(new Event('change'));$('measuredPackages').textContent=data.packages.map(p=>`${p.cart_key}: ${p.dimensions.length} × ${p.dimensions.width} × ${p.dimensions.height} cm`).join('\n');status.textContent=data.shippingBlocker?'Courier account configuration is incomplete. Measurements can still be saved.':'';}
