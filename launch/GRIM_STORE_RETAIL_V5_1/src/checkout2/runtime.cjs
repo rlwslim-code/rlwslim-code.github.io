@@ -67,6 +67,40 @@ function createRuntime({config,supabase,env=process.env}) {
       throw new CheckoutError('INVALID_MEASUREMENTS','Enter measured positive package dimensions in centimetres.');
     return {length:x.length,width:x.width,height:x.height};
   };
+  // Manual-quote requests: separate tables, no payment initiation and no notifications.
+  const quoteRequests=env.GRIM_HYBRID_QUOTE_REQUESTS_ENABLED==='true' && supabase
+    ? require('./hybrid-quote-requests.cjs').createService({db:supabase,catalog}) : null;
+  admin.get('/shipping/hybrid/requests',wrap(async(_req,res)=>{
+    if(!quoteRequests)throw new CheckoutError('FEATURE_DISABLED','Manual quote requests are disabled.',503);
+    res.json({requests:await quoteRequests.listAdmin()});
+  }));
+  admin.post('/shipping/hybrid/requests/:id/quote',wrap(async(req,res)=>{
+    if(!quoteRequests)throw new CheckoutError('FEATURE_DISABLED','Manual quote requests are disabled.',503);
+    res.json(await quoteRequests.setQuote({id:req.params.id,feeKobo:req.body?.feeKobo}));
+  }));
+  // Separate, opt-in hybrid rate manager. Existing courier integrations stay untouched.
+  admin.get('/shipping/hybrid/rates',wrap(async(_req,res)=>{
+    const {fetchRates}=require('./hybrid-delivery.cjs');
+    res.json({rates:await fetchRates(supabase)});
+  }));
+  admin.post('/shipping/hybrid/rates',wrap(async(req,res)=>{
+    const {parseRate}=require('./hybrid-delivery.cjs');
+    const input=parseRate(req.body);
+    const {data,error}=await supabase.from('grim2_hybrid_rates').insert(input).select('id').single();
+    if(error)throw new CheckoutError('RATE_SAVE_FAILED','Unable to save this delivery rate.',503);
+    res.status(201).json({saved:true,id:data.id,enabled:input.enabled});
+  }));
+  // Edit existing zone rates without deleting records. Setting enabled=false is reversible.
+  admin.patch('/shipping/hybrid/rates/:id',wrap(async(req,res)=>{
+    const {parseRate}=require('./hybrid-delivery.cjs');
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(req.params.id))
+      throw new CheckoutError('INVALID_RATE','Invalid delivery rate identifier.',400);
+    const input=parseRate(req.body);
+    const {data,error}=await supabase.from('grim2_hybrid_rates').update(input).eq('id',req.params.id).select('id').maybeSingle();
+    if(error)throw new CheckoutError('RATE_SAVE_FAILED','Unable to update this delivery rate.',503);
+    if(!data)throw new CheckoutError('RATE_NOT_FOUND','Delivery rate not found.',404);
+    res.json({saved:true,id:data.id,enabled:input.enabled});
+  }));
   admin.get('/shipping/provider-setup',wrap(async(_req,res)=>{
     const provider = createProviderSetup({apiKey:shipbubbleKey});
     const result = await provider();
@@ -105,6 +139,6 @@ function createRuntime({config,supabase,env=process.env}) {
     const {data,error}=await supabase.from('grim2_attempts').select('reference,status,order_id,quote,payment_evidence,created_at,paid_at').eq('reference',req.params.reference).maybeSingle();
     if(error) throw error;res.json(data);
   }));
-  return {catalog,sessionUser:customer,shippingQuoteFlow,shippingBlocker,admin};
+  return {catalog,sessionUser:customer,shippingQuoteFlow,shippingBlocker,admin,quoteRequests};
 }
 module.exports={createRuntime};

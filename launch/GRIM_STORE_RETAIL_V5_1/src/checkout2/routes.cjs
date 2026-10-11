@@ -16,6 +16,7 @@ function createRoutes({
   provider,
   customerProfile,
   shippingQuoteFlow,
+  quoteRequests,
 }) {
   const router = express.Router();
   store =
@@ -145,6 +146,22 @@ function createRoutes({
   router.post("/shipping/quotes", wrap(async (req,res) => {
     if (!shippingQuoteFlow) throw new CheckoutError("SHIPPING_NOT_CONFIGURED", "Delivery quotes are not available yet.", 503);
     res.json(await shippingQuoteFlow.quote({customer:{...req.checkoutCustomer,...require("./checkout-core.cjs").contact(req.body?.contact),name:`${req.body?.contact?.firstName || ""} ${req.body?.contact?.lastName || ""}`.trim()}, lines:req.body?.lines, destination:req.body?.destination}));
+  }));
+  // Estimates only. No payment or shipping booking can be triggered here.
+  router.post('/shipping/hybrid/estimate',wrap(async(req,res)=>{
+    if(!config.hybridDeliveryEnabled) throw new CheckoutError('HYBRID_NOT_ACTIVE','Hybrid delivery is not enabled.',503);
+    const {estimate}=require('./hybrid-delivery.cjs');
+    const db=config.hybridSupabase;
+    res.json(await estimate({catalog,db})({lines:req.body?.lines,destination:req.body?.destination}));
+  }));
+  // No payment link here. Customer is clearly told to await an administrator quote.
+  router.post('/shipping/hybrid/request',wrap(async(req,res)=>{
+    if(!quoteRequests)throw new CheckoutError('FEATURE_DISABLED','Manual quote requests are disabled.',503);
+    res.status(201).json(await quoteRequests.create({customerId:req.checkoutCustomer.id,lines:req.body?.lines,destination:req.body?.destination,recipient:req.body?.recipient}));
+  }));
+  router.get('/shipping/hybrid/requests',wrap(async(req,res)=>{
+    if(!quoteRequests)throw new CheckoutError('FEATURE_DISABLED','Manual quote requests are disabled.',503);
+    res.json({requests:await quoteRequests.listCustomer(req.checkoutCustomer.id)});
   }));
   router.post(
     "/addresses",
