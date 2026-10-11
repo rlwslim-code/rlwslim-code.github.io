@@ -235,3 +235,31 @@ footer {
 #receiptDetails, #measuredPackages { white-space: pre-line; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 @media print { header, footer, #checkoutLayout, #recovery, #signin, #printReceipt { display:none !important; } body {color:#000;background:#fff;} }
+
+/* GRIM 4-stage mobile checkout: each stage is isolated, payment gated by backend. */
+.checkout-progress { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-bottom:12px; }
+.checkout-progress span { border:1px solid #534a40;border-radius:4px;padding:12px 4px;text-align:center;color:#aaa197;font-size:10px;letter-spacing:.04em; }
+.checkout-progress span.active { border-color:#dec18d;background:#3b272e;color:#f8e9cd;font-weight:bold; }
+.step-status { color:#dcc596;letter-spacing:1px;font-size:12px;margin-bottom:15px;scroll-margin-top:24px; }
+.step-actions { display:flex;gap:10px; }
+.step-actions button { flex:1; }
+.step-actions .secondary-action { background:transparent;color:#e3d3b7; }
+.unavailable-transfer { opacity:.65; }
+.unavailable-transfer input { cursor:not-allowed; }
+#checkoutForm > section[hidden] { display:none !important; }
+@media(max-width:760px){.checkout-progress span{font-size:9px;padding:10px 2px}.step-actions{flex-direction:column-reverse}}
+
+/* GRIM/RAV’KAEL palette — Obsidian, Bloodline, Abyss, Eclipse Gold. */
+.grim-checkout-wizard {background: radial-gradient(ellipse at 88% 8%,rgba(32,56,104,.27),transparent 44%), radial-gradient(ellipse at 6% 36%,rgba(124,18,64,.24),transparent 49%),#09080d;color:#f5eaf0;}
+.grim-checkout-wizard header {border-bottom-color:#5e3547;}
+.grim-checkout-wizard .intro .eyebrow,.grim-checkout-wizard .step-status {color:#e8c88e;}
+.grim-checkout-wizard #checkoutForm > section {background:linear-gradient(145deg,#1a0e22,#110f1b 64%,#12142a);border-color:#68425d;box-shadow:0 10px 30px rgba(0,0,0,.22);}
+.grim-checkout-wizard .checkout-progress span {background:#17101e;border-color:#51304a;color:#dfccda;}
+.grim-checkout-wizard .checkout-progress span.active {background:linear-gradient(110deg,#631638,#303c83);border-color:#dfbd83;color:#fff4e3;}
+.grim-checkout-wizard #checkoutForm button:not(.secondary-action) {background:linear-gradient(105deg,#641736,#852253 48%,#364e9b);color:#fff2dd;border:1px solid #d1ae7c;font-weight:bold;min-height:48px;}
+.grim-checkout-wizard #checkoutForm button:disabled {opacity:.5;cursor:not-allowed;}
+.grim-checkout-wizard #grim2CourierOffers {white-space:pre-wrap;line-height:1.5;margin-top:12px;color:#e8c88e;}
+.grim-checkout-wizard .step-actions {position:relative;z-index:1;margin:8px 0 22px;}
+.grim-checkout-wizard .unavailable-transfer {border-color:#634b65;opacity:.68;}
+/* No hidden step may leak into the single-screen wizard. */
+.grim-checkout-wizard #checkoutForm > section[hidden],.grim-checkout-wizard [hidden] {display:none !important;}

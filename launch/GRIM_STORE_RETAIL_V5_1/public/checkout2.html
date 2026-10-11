@@ -6,10 +6,10 @@
     <meta name="robots" content="noindex,nofollow" />
     <meta name="theme-color" content="#0b0b0d" />
     <title>GRIM | Checkout 2.0</title>
-    <link rel="stylesheet" href="/checkout2.css" />
-    <script src="/checkout2.js" defer></script>
+    <link rel="stylesheet" href="/checkout2.css?v=grim-wizard-20261011-b" />
+    <script src="/checkout2.js?v=grim-wizard-20261011-b" defer></script>
   </head>
-  <body>
+  <body class="grim-checkout-wizard">
     <header>
       <a href="/" aria-label="GRIM home"
         ><img src="/assets/grim-primary.png" alt="GRIM" /></a
@@ -61,7 +61,11 @@
         <div id="pending"></div>
       </section>
       <div class="layout" id="checkoutLayout" hidden>
-        <form id="checkoutForm">
+        <nav class="checkout-progress" id="checkoutProgress" aria-label="Checkout progress">
+            <span class="active" aria-current="step">01 DETAILS</span><span>02 DELIVERY</span><span>03 BILLING</span><span>04 PAYMENT</span>
+          </nav>
+          <p id="checkoutStepStatus" class="step-status" role="status" aria-live="polite">Step 1 of 4 · Your details</p>
+          <form id="checkoutForm">
           <section>
             <h2>01 / YOUR DETAILS</h2>
             <p id="accountEmail"></p>
@@ -193,7 +197,6 @@
               address to my test account</label
             >
           </section>
-          <section><h2>DELIVERY QUOTE ALTERNATIVE</h2><p class="note">No courier price? Request a manual delivery quote without paying now. GRIM will confirm the final delivery fee.</p><a href="/delivery-request.html">REQUEST MANUAL DELIVERY QUOTE →</a></section>
           <section>
             <h2>04 / PAYMENT</h2>
             <label class="choice method"
@@ -214,14 +217,22 @@
                 ></span
               ></label
             >
-            <p class="note">
-              All totals settle in NGN. This Preview uses test wallet balances.
+            <label class="choice method unavailable-transfer">
+              <input id="transferMethod" type="radio" name="method" value="bank_transfer" disabled />
+              <span>PAYSTACK BANK TRANSFER<small>Coming soon — available only after verified Paystack transfer support is enabled for GRIM.</small></span>
+            </label>
+            <p class="note" id="paymentNote">
+              All totals settle in NGN. Payment methods become available after verification.
             </p>
             <button id="payButton">CONTINUE TO TEST PAYMENT</button
             ><button type="button" id="retryWallet" hidden>
               RETRY EXISTING WALLET CHECKOUT
             </button>
           </section>
+            <div class="step-actions" id="checkoutStepActions">
+              <button type="button" id="stepBack" class="secondary-action" hidden>BACK</button>
+              <button type="button" id="stepNext">CONTINUE TO DELIVERY</button>
+            </div>
         </form>
         <aside>
           <section>

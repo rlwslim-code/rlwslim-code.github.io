@@ -59,12 +59,56 @@
     }
     return k;
   }
+  // Four visible stages, one existing checkout form and one trusted payment path.
+  document.body.dataset.checkoutWizardVersion = "20261011-b";
+  const stages = Array.from(form.children).filter((node) => node.tagName === "SECTION");
+  const stepNames = ["Your details", "Delivery", "Billing", "Payment"];
+  let currentStep = 0;
+  function showStage(step) {
+    currentStep = Math.max(0, Math.min(stages.length - 1, step));
+    stages.forEach((section, index) => { section.hidden = index !== currentStep; });
+    const progress = Array.from($("checkoutProgress").children);
+    progress.forEach((item, index) => {
+      item.classList.toggle("active", index === currentStep);
+      if (index === currentStep) item.setAttribute("aria-current", "step");
+      else item.removeAttribute("aria-current");
+    });
+    $("checkoutStepStatus").textContent = `Step ${currentStep + 1} of ${stages.length} · ${stepNames[currentStep]}`;
+    $("stepBack").hidden = currentStep === 0;
+    $("stepNext").hidden = currentStep === stages.length - 1;
+    $("stepNext").textContent = `CONTINUE TO ${stepNames[currentStep + 1]?.toUpperCase() || "PAYMENT"}`;
+    $("payButton").hidden = currentStep !== stages.length - 1;
+    // Do not clear the form; customer values persist while switching stages.
+    $("checkoutStepStatus").scrollIntoView({block: "start", behavior: "instant"});
+  }
+  function validateStage(step) {
+    for (const input of stages[step].querySelectorAll("input,select,textarea")) {
+      if (!input.disabled && !input.checkValidity()) {
+        input.reportValidity();
+        return false;
+      }
+    }
+    return true;
+  }
+  $("stepBack").addEventListener("click", () => { if (!busy) showStage(currentStep - 1); });
+  $("stepNext").addEventListener("click", () => {
+    if (busy || !validateStage(currentStep)) return;
+    // A courier is required before proceeding to payment when configured.
+    if (currentStep === 1 && shippingRequired && !shippingToken) {
+      say("Choose an available courier before continuing, or request a manual delivery quotation.", true);
+      return;
+    }
+    showStage(currentStep + 1);
+  });
+  showStage(0);
   function lock(value) {
     busy = value;
     document.querySelectorAll("button").forEach((b) => {
       b.disabled = value;
     });
     $("payButton").disabled = value || !acceptingOrders || !!pending || !quote || (shippingRequired && !shippingToken);
+    $("stepNext").disabled = value;
+    $("stepBack").disabled = value;
   }
   async function api(path, data) {
     const r = await fetch(`/api/checkout2/${path}`, {
@@ -116,10 +160,11 @@
     btn.textContent='FIND AVAILABLE COURIERS';
     const offers = document.createElement('div'); offers.id = 'grim2CourierOffers';
     block.append(title,btn,offers);
-    $('payButton').parentElement.before(block);
+    stages[1].append(block);
     btn.addEventListener('click', async()=>{
-      if (busy || !customer || !quote) return;
-    if(!acceptingOrders) {say("New payments are paused. Check an existing card payment to recover it.",true);return;}
+      if (busy) { offers.textContent = 'Please wait for the current request to finish.'; return; }
+      if (!customer || !quote) { offers.textContent = 'Sign in and load your bag before requesting courier quotes.'; return; }
+      if (!acceptingOrders) { offers.textContent = 'Checkout is temporarily paused. Request a manual delivery quotation instead.'; say(offers.textContent,true); return; }
       shippingToken=null; shippingOffers=null; lock(true); offers.textContent='Checking delivery options…';
       try {
         const r = await api('shipping/quotes',{lines:lines(),destination:read('shipping'),contact:{firstName:fields.firstName.value,lastName:fields.lastName.value,phone:fields.phone.value}});
@@ -136,7 +181,7 @@
           });
           offers.append(label,document.createElement('br'));
         }
-        if (!r.couriers?.length) throw Error('No delivery couriers are available for this address.');
+        if (!r.couriers?.length) throw Error('No couriers available for this address yet. Use REQUEST MANUAL DELIVERY QUOTE instead.');
       } catch(e) { offers.textContent=e.message || 'Delivery quotations unavailable.';say(offers.textContent,true); }
       finally {lock(false);}
     });
@@ -320,6 +365,7 @@
         await check(ref);
         return;
       } else if (cart.length) {
+        showStage(0);
         drawQuote(await api("quote", { lines: lines() }));
         say("Review your delivery and billing details.");
       } else {
@@ -390,6 +436,13 @@
   }
   form.onsubmit = (e) => {
     e.preventDefault();
+    if (currentStep < stages.length - 1) {
+      if (validateStage(currentStep)) $("stepNext").click();
+      return;
+    }
+    for (let i = 0; i < stages.length - 1; i++) {
+      if (!validateStage(i)) { showStage(i); validateStage(i); return; }
+    }
     submit();
   };
   $("billingSame").onchange = () => {
@@ -480,9 +533,12 @@
         mode === "test" ? "GRIM TEST WALLET" : "GRIM WALLET";
       document.querySelector("#payButton").textContent = mode === "test" ?
         "CONTINUE TO TEST PAYMENT" : "CONTINUE TO PAYMENT";
-      document.querySelector("#checkoutForm .note").textContent = mode === "test" ?
+      $("paymentNote").textContent = mode === "test" ?
         "All totals settle in NGN. This Preview uses test wallet balances." :
         "All totals settle in NGN. Wallet checkout deducts only the displayed order total.";
+      // Bank transfer must remain disabled until server-controlled channel selection,
+      // reference verification and idempotent order recording are implemented.
+      $("transferMethod").disabled = true;
       load();
     })
     .catch((e) => say(e.message, true));
