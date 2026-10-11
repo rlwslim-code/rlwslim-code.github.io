@@ -1,3 +1,4 @@
+const { allowedOrigin } = require('./allowed-origin.cjs');
 'use strict';
 const express=require('express');
 const {createShippingQuoteFlow,cartKey}=require('./shipping-quote-flow.cjs');
@@ -57,7 +58,7 @@ function createRuntime({config,supabase,env=process.env}) {
   admin.use((req,res,next)=>{
     res.set('Cache-Control','no-store');
     if(req.session?.admin!==true) return res.status(401).json({error:'ADMIN_REQUIRED'});
-    if(req.method!=='GET' && req.headers.origin!==config.base) return res.status(403).json({error:'ORIGIN_REJECTED'});
+    if(req.method!=='GET' && !allowedOrigin(req.headers.origin, config)) return res.status(403).json({error:'ORIGIN_REJECTED'});
     if(!supabase && req.path !== '/shipping/provider-setup') return res.status(503).json({error:'DATABASE_UNAVAILABLE'});
     next();
   });

@@ -1,3 +1,4 @@
+const { allowedOrigin } = require('./allowed-origin.cjs');
 "use strict";
 const express = require("express");
 const { createEngine, refOK } = require("./grim-checkout-v2.cjs");
@@ -91,7 +92,7 @@ function createRoutes({
       lastName: u.lastName || "",
       phone: u.phone || "",
     };
-    if (req.method !== "GET" && req.headers.origin !== config.base)
+    if (req.method !== "GET" && !allowedOrigin(req.headers.origin, config))
       return res
         .status(403)
         .json({
