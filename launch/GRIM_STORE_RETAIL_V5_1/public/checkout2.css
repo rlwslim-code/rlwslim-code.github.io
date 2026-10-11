@@ -277,3 +277,10 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .grim-address-option:hover, .grim-address-option:focus-visible { color: #fff; background: linear-gradient(105deg,#712044,#243f88); outline: 2px solid #d6b67a; outline-offset: -2px; }
 .grim-address-hint {display:block; margin:.35rem 0 .75rem; color:#d9bc85; font-size:.82rem; line-height:1.5;}
 
+
+/* GRIM approved-quotation bridge */
+.grim-manual-quote { margin-top:1.5rem; padding:1.15rem; background:#17101f; border:1px solid #bca274; border-radius:12px; }
+.grim-manual-quote h3 { color:#d8bd86; }
+.grim-manual-quote-option,.grim-manual-quote #grim2ReloadQuotes,.grim-manual-pay-link {display:block;width:100%;padding:1rem;margin:.65rem 0;background:linear-gradient(105deg,#731633,#34509f);color:white;border:1px solid #d8bd86;border-radius:6px;font:inherit;text-align:left;cursor:pointer;text-decoration:none;}
+.grim-manual-quote-option[aria-pressed="true"]{outline:2px solid #eac984;}
+.grim-manual-pay-link[hidden]{display:none;}

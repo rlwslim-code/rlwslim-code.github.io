@@ -9,7 +9,7 @@
     pending = null,
     busy = false,
     addresses = [], mode = "test", walletEnabled = true,
-    acceptingOrders = true, shippingRequired = false, shippingToken = null, shippingOffers = null;
+    acceptingOrders = true, shippingRequired = false, shippingToken = null, shippingOffers = null, selectedManualQuote = null;
   const fmt = (n) =>
     new Intl.NumberFormat("en-NG", {
       style: "currency",
@@ -182,6 +182,58 @@
   }
   installAddressAutocomplete('shipping');
   installAddressAutocomplete('billing');
+  // A manual-quote order uses its dedicated, server-verified payment route.
+  // Never feed a manually quoted order through ordinary courier checkout.
+  const manualArea = document.createElement('div');
+  manualArea.id = 'grim2ManualQuoteBridge';
+  manualArea.className = 'grim-manual-quote';
+  manualArea.innerHTML = '<h3>APPROVED DELIVERY QUOTATIONS</h3><p id="grim2ManualQuoteStatus">Sign in to check your confirmed quotations.</p><div id="grim2ManualQuoteList"></div><button type="button" id="grim2ReloadQuotes">REFRESH QUOTATIONS</button>';
+  const manualPayLink = document.createElement('a');
+  manualPayLink.id = 'grim2ManualPayLink';
+  manualPayLink.href = '/delivery-request.html';
+  manualPayLink.textContent = 'CONTINUE WITH CONFIRMED QUOTATION →';
+  manualPayLink.className = 'grim-manual-pay-link';
+  manualPayLink.hidden = true;
+  let manualQuoteSequence = 0;
+  async function loadManualQuotes() {
+    const seq = ++manualQuoteSequence;
+    const status = $('grim2ManualQuoteStatus');
+    const list = $('grim2ManualQuoteList');
+    selectedManualQuote = null;
+    manualPayLink.hidden = true;
+    if (!customer) { status.textContent = 'Sign in to view your quotations.'; return; }
+    status.textContent = 'Checking your approved quotations…';
+    list.replaceChildren();
+    try {
+      const response = await fetch('/api/checkout2/shipping/hybrid/requests', {credentials:'same-origin',cache:'no-store'});
+      const body = await response.json();
+      if (!response.ok) throw Error(body.message || body.error || 'Unable to load quotations');
+      if (seq !== manualQuoteSequence) return;
+      const eligible = (body.requests || []).filter(q => q.status === 'QUOTE_READY' && q.paymentStatus !== 'paid' && Number.isSafeInteger(Number(q.totalKobo)) && Number(q.totalKobo) > 0);
+      if (!eligible.length) {status.textContent = 'No confirmed delivery quotation yet. Request one if couriers are unavailable.';return;}
+      status.textContent = 'Select a quotation for your current bag. Payment will use the quotation’s separate secure flow.';
+      for (const q of eligible) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'grim-manual-quote-option';
+        button.textContent = `Quote ${String(q.id).slice(0,8)} · Delivery ${fmt(Number(q.deliveryFeeKobo ?? (Number(q.totalKobo) - Number(q.subtotalKobo))))} · Total ${fmt(Number(q.totalKobo))}`;
+        button.addEventListener('click', () => {
+          // This is a UI selection, NOT a payment authorization.
+          if (!quote || Number(q.subtotalKobo) !== Number(quote.subtotalKobo)) {
+            say('This quotation does not match the current bag subtotal. Review your bag and request a new quotation if needed.',true);
+            return;
+          }
+          selectedManualQuote = q;
+          list.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === button)));
+          say('Manual quotation selected. Review its details on the secure quotation page before paying.');
+          manualPayLink.href = '/delivery-request.html';
+          if (typeof currentStep !== 'undefined' && currentStep === 3) manualPayLink.hidden = false;
+        });
+        button.setAttribute('aria-pressed','false');
+        list.append(button);
+      }
+    } catch(e) { if (seq === manualQuoteSequence) status.textContent = 'Quotation lookup unavailable: ' + e.message + '. Manual entry remains available.'; }
+  }
   // Four visible stages, one existing checkout form and one trusted payment path.
   document.body.dataset.checkoutWizardVersion = "20261011-c";
   const stages = Array.from(form.children).filter((node) => node.tagName === "SECTION");
@@ -200,7 +252,8 @@
     $("stepBack").hidden = currentStep === 0;
     $("stepNext").hidden = currentStep === stages.length - 1;
     $("stepNext").textContent = `CONTINUE TO ${stepNames[currentStep + 1]?.toUpperCase() || "PAYMENT"}`;
-    $("payButton").hidden = currentStep !== stages.length - 1;
+    $("payButton").hidden = currentStep !== stages.length - 1 || !!selectedManualQuote;
+    manualPayLink.hidden = currentStep !== stages.length - 1 || !selectedManualQuote;
     // Do not clear the form; customer values persist while switching stages.
     $("checkoutStepStatus").scrollIntoView({block: "start", behavior: "instant"});
   }
@@ -217,19 +270,20 @@
   $("stepNext").addEventListener("click", () => {
     if (busy || !validateStage(currentStep)) return;
     // A courier is required before proceeding to payment when configured.
-    if (currentStep === 1 && shippingRequired && !shippingToken) {
+    if (currentStep === 1 && shippingRequired && !shippingToken && !selectedManualQuote) {
       say("Choose an available courier before continuing, or request a manual delivery quotation.", true);
       return;
     }
     showStage(currentStep + 1);
   });
+  stages[3].append(manualPayLink);
   showStage(0);
   function lock(value) {
     busy = value;
     document.querySelectorAll("button").forEach((b) => {
       b.disabled = value;
     });
-    $("payButton").disabled = value || !acceptingOrders || !!pending || !quote || (shippingRequired && !shippingToken);
+    $("payButton").disabled = value || !acceptingOrders || !!pending || !quote || !!selectedManualQuote || (shippingRequired && !shippingToken);
     $("stepNext").disabled = value;
     $("stepBack").disabled = value;
   }
@@ -283,7 +337,9 @@
     btn.textContent='FIND AVAILABLE COURIERS';
     const offers = document.createElement('div'); offers.id = 'grim2CourierOffers';
     block.append(title,btn,offers);
-    stages[1].append(block);
+    stages[1].append(block,manualArea);
+    $('grim2ReloadQuotes').addEventListener('click',loadManualQuotes);
+    loadManualQuotes();
     btn.addEventListener('click', async()=>{
       if (busy) { offers.textContent = 'Please wait for the current request to finish.'; return; }
       if (!customer || !quote) { offers.textContent = 'Sign in and load your bag before requesting courier quotes.'; return; }
@@ -311,6 +367,7 @@
     for (const field of form.querySelectorAll('[name^="shipping"], [name="firstName"], [name="lastName"], [name="phone"]')) {
       field.addEventListener('change',()=>{
         shippingToken=null; shippingOffers=null;
+        selectedManualQuote=null; manualPayLink.hidden=true;
         offers.textContent='Delivery address changed. Refresh courier options.';
         if(quote)drawQuote({...quote,shippingKobo:0,totalKobo:quote.subtotalKobo});
         lock(false);
@@ -492,6 +549,7 @@
       } else if (cart.length) {
         showStage(0);
         drawQuote(await api("quote", { lines: lines() }));
+        if (shippingRequired) await loadManualQuotes();
         say("Review your delivery and billing details.");
       } else {
         say("Your bag is empty. Add a piece from the shop to continue.");
@@ -508,6 +566,7 @@
   }
   async function submit() {
     if (busy || !customer || !quote) return;
+    if (selectedManualQuote) { say("Use the confirmed quotation payment link. Ordinary checkout cannot charge a manual quotation.",true); return; }
     if(!acceptingOrders) {say("New payments are paused. Check an existing card payment to recover it.",true);return;}
     if (pending?.method !== "wallet" && pending) {
       say("Check the existing payment before continuing.", true);
