@@ -263,3 +263,17 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .grim-checkout-wizard .unavailable-transfer {border-color:#634b65;opacity:.68;}
 /* No hidden step may leak into the single-screen wizard. */
 .grim-checkout-wizard #checkoutForm > section[hidden],.grim-checkout-wizard [hidden] {display:none !important;}
+
+/* GRIM account address save & manual-delivery fallback */
+.checkout-save-address {margin:20px 0 6px;padding:16px;border:1px solid #57435b;background:linear-gradient(115deg,#170b19,#0d152b);border-radius:8px;}
+.checkout-save-address .secondary-action {border:1px solid #c7a873;background:linear-gradient(110deg,#58132e,#1f3670);font-weight:700;letter-spacing:1px;cursor:pointer;}
+.checkout-save-address p {margin:12px 0;}
+.checkout-save-address a {display:inline-block;margin:8px 0;font-size:12px;color:#edce93;text-decoration:underline;line-height:1.6;}
+
+/* GRIM address autocomplete (Bloodline / Abyss / Eclipse Gold). */
+.grim-address-suggestions { margin: .45rem 0 .7rem; padding: .25rem; border: 1px solid #d6b67a; border-radius: 9px; background: #121019; max-height: 15rem; overflow-y: auto; box-shadow: 0 12px 26px #0008; }
+.grim-address-suggestions[hidden] { display:none !important; }
+.grim-address-option { display: block; width:100%; padding: .78rem; border:0; border-bottom: 1px solid #433448; border-radius: 3px; text-align: left; color: #f8f0ec; background: #1d1428; font: inherit; line-height: 1.45; }
+.grim-address-option:hover, .grim-address-option:focus-visible { color: #fff; background: linear-gradient(105deg,#712044,#243f88); outline: 2px solid #d6b67a; outline-offset: -2px; }
+.grim-address-hint {display:block; margin:.35rem 0 .75rem; color:#d9bc85; font-size:.82rem; line-height:1.5;}
+

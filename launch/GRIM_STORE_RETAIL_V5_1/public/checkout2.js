@@ -50,6 +50,58 @@
       quantity: Number(i.qty),
       size: String(i.size || "M"),
     }));
+  // Session-only draft: survives refresh and wizard navigation but not a closed browser session.
+  // Saved account addresses use the existing authenticated /api/checkout2/addresses endpoint.
+  const draftKey = () => `grim2_draft:${customer?.id || "signed-out"}`;
+  const draftFields = ["firstName", "lastName", "phone", "shippingCountry", "shippingAddress", "shippingApartment", "shippingCity", "shippingState", "shippingPostal", "billingCountry", "billingAddress", "billingApartment", "billingCity", "billingState", "billingPostal"];
+  let restoreInProgress = false;
+  function saveDraft() {
+    if (!customer || restoreInProgress) return;
+    try {
+      const values = Object.fromEntries(draftFields.map(k => [k, fields[k]?.value || ""]));
+      values.billingSame = $("billingSame").checked;
+      sessionStorage.setItem(draftKey(), JSON.stringify(values));
+    } catch {} // Private browser mode can disallow storage.
+  }
+  function restoreDraft() {
+    if (!customer) return;
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(draftKey()) || "null");
+      if (!saved || typeof saved !== "object") return;
+      restoreInProgress = true;
+      for (const k of draftFields) if (fields[k] && typeof saved[k] === "string") fields[k].value = saved[k];
+      if (typeof saved.billingSame === "boolean") $("billingSame").checked = saved.billingSame;
+      $("billingSame").dispatchEvent(new Event("change"));
+    } catch {} finally {restoreInProgress = false;}
+  }
+  // Explicit opt-in to save address to account; never store card data or payments in drafts.
+  async function saveAccountAddress(prefix, statusId) {
+    if (!customer) throw Error("Please sign in before saving your address.");
+    const a = read(prefix);
+    if (!a.address || !a.city || !a.state || !a.country) throw Error("Enter street address, city, state, and country before saving.");
+    const message = $(statusId);
+    message.textContent = "Saving securely to your GRIM account…";
+    const result = await api("addresses", { address: a });
+    if (!addresses.some(old => JSON.stringify(old) === JSON.stringify(a))) addresses.unshift(a);
+    addressOptions();
+    const selector = $(prefix === "shipping" ? "savedShipping" : "savedBilling");
+    selector.value = String(addresses.findIndex(old => JSON.stringify(old) === JSON.stringify(a)));
+    message.textContent = "Address saved to your GRIM account.";
+    saveDraft();
+    return result;
+  }
+  function wireAddressSave(id, prefix, output) {
+    $(id).addEventListener("click", async () => {
+      const button = $(id); button.disabled = true;
+      try { await saveAccountAddress(prefix, output); }
+      catch (e) { $(output).textContent = `Could not save address: ${e.message}`; }
+      finally { button.disabled = false; }
+    });
+  }
+  wireAddressSave("saveDeliveryAddress", "shipping", "deliverySaveStatus");
+  wireAddressSave("saveBillingAddress", "billing", "billingSaveStatus");
+  form.addEventListener("input", saveDraft);
+  form.addEventListener("change", saveDraft);
   const ownerKey = () => `grim2_checkout_key:${customer.id}`;
   function requestKey() {
     let k = storage.get(ownerKey());
@@ -59,8 +111,79 @@
     }
     return k;
   }
+  // Geoapify address suggestions. Requests go through our same-origin, rate-limited API.
+  // Never overwrite apartment information; incomplete Nigerian results remain editable.
+  function installAddressAutocomplete(prefix) {
+    const input = fields[`${prefix}Address`];
+    if (!input) return;
+    input.setAttribute('autocomplete', prefix === 'shipping' ? 'shipping street-address' : 'billing street-address');
+    input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-expanded', 'false');
+    const list = document.createElement('div');
+    list.className = 'grim-address-suggestions';
+    list.id = `${prefix}AddressSuggestions`;
+    list.setAttribute('role', 'listbox');
+    list.hidden = true;
+    input.setAttribute('aria-controls', list.id);
+    input.parentElement.append(list);
+    const status = document.createElement('small');
+    status.className = 'grim-address-hint';
+    status.textContent = 'Start typing to see matching addresses, or enter yours manually.';
+    input.parentElement.append(status);
+    let timeout, request, serial = 0, selecting = false;
+    const close = () => { list.hidden = true; list.replaceChildren(); input.setAttribute('aria-expanded','false'); };
+    input.addEventListener('input', () => {
+      if (selecting) return;
+      clearTimeout(timeout); request?.abort(); close();
+      const query = input.value.trim();
+      if (query.length < 3) { status.textContent = 'Type at least 3 characters for suggestions.'; return; }
+      const ticket = ++serial;
+      timeout = setTimeout(async () => {
+        request = new AbortController();
+        try {
+          const country = fields[`${prefix}Country`]?.value || 'NG';
+          const search = new URLSearchParams({ text: query, country });
+          const response = await fetch(`/api/address/autocomplete?${search}`, { credentials:'same-origin', cache:'no-store', signal:request.signal });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.message || 'Address suggestions unavailable.');
+          if (ticket !== serial || input.value.trim() !== query) return;
+          const matches = Array.isArray(data.results) ? data.results : [];
+          if (!matches.length) { status.textContent = 'No matches found. You can type your address manually.'; return; }
+          for (const match of matches) {
+            const option = document.createElement('button');
+            option.type = 'button'; option.className = 'grim-address-option';
+            option.setAttribute('role','option');
+            option.textContent = match.formatted || [match.address,match.city,match.state].filter(Boolean).join(', ');
+            option.addEventListener('click', () => {
+              selecting = true;
+              input.value = match.address || match.formatted || query;
+              for (const [key, value] of Object.entries({ City: match.city, State: match.state, Postal: match.postal, Country: match.country })) {
+                const field = fields[`${prefix}${key}`];
+                if (field && value) {
+                  if (field.tagName !== 'SELECT' || [...field.options].some(o=>o.value === value)) field.value = value;
+                }
+              }
+              selecting = false; close();
+              input.dispatchEvent(new Event('change', {bubbles:true}));
+              saveDraft();
+              status.textContent = 'Address selected. Check the fields below and complete any missing details.';
+            });
+            list.append(option);
+          }
+          list.hidden = false; input.setAttribute('aria-expanded','true');
+          status.textContent = 'Select an address below or keep typing.';
+        } catch(err) {
+          if (err.name !== 'AbortError') status.textContent = 'Address suggestions unavailable; manual entry still works.';
+        }
+      }, 400);
+    });
+    input.addEventListener('keydown', ev => { if (ev.key === 'Escape') close(); });
+    document.addEventListener('click', ev => { if (!list.contains(ev.target) && ev.target !== input) close(); });
+  }
+  installAddressAutocomplete('shipping');
+  installAddressAutocomplete('billing');
   // Four visible stages, one existing checkout form and one trusted payment path.
-  document.body.dataset.checkoutWizardVersion = "20261011-b";
+  document.body.dataset.checkoutWizardVersion = "20261011-c";
   const stages = Array.from(form.children).filter((node) => node.tagName === "SECTION");
   const stepNames = ["Your details", "Delivery", "Billing", "Payment"];
   let currentStep = 0;
@@ -181,7 +304,7 @@
           });
           offers.append(label,document.createElement('br'));
         }
-        if (!r.couriers?.length) throw Error('No couriers available for this address yet. Use REQUEST MANUAL DELIVERY QUOTE instead.');
+        if (!r.couriers?.length) throw Error('No couriers available. Request a manual delivery quotation below. You cannot pay until the delivery fee is confirmed.');
       } catch(e) { offers.textContent=e.message || 'Delivery quotations unavailable.';say(offers.textContent,true); }
       finally {lock(false);}
     });
@@ -345,7 +468,9 @@
       addresses = [...(account.addresses || [])];
       if (account.savedBilling) addresses.push(account.savedBilling);
       addressOptions();
-      fill("shipping", account.shippingAddress);
+      // Match the old GRIM checkout's autofill: use profile address, then first saved address.
+      fill("shipping", account.shippingAddress || addresses.find(a => a?.address && a?.city) || null);
+      restoreDraft();
       const w = account.wallet;
       $("walletBalance").textContent =
         `${fmt(w.balanceKobo)} available${mode === "test" ? " · test balance" : ""}`;

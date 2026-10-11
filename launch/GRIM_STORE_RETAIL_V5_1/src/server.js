@@ -21,6 +21,8 @@ import { installGrimV6 } from "./grim-v6.js";
 import { installGrimV7 } from "./grim-v7.js";
 import { installGrimV8 } from "./grim-v8.js";
 import { installGrimPush } from "./grim-push.js";
+import geoapifyAddress from "./geoapify-address.js";
+
 dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -81,6 +83,7 @@ app.use((req, res, next) => {
 app.use('/api/checkout2/webhook', express.raw({ type: 'application/json', limit: '256kb' }));
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false }));
+app.use("/api/address", geoapifyAddress);
 
 const sessionSecret =
   process.env.SESSION_SECRET ||

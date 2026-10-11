@@ -6,8 +6,8 @@
     <meta name="robots" content="noindex,nofollow" />
     <meta name="theme-color" content="#0b0b0d" />
     <title>GRIM | Checkout 2.0</title>
-    <link rel="stylesheet" href="/checkout2.css?v=grim-wizard-20261011-b" />
-    <script src="/checkout2.js?v=grim-wizard-20261011-b" defer></script>
+    <link rel="stylesheet" href="/checkout2.css?v=grim-geo-autocomplete-20261011-d" />
+    <script src="/checkout2.js?v=grim-geo-autocomplete-20261011-d" defer></script>
   </head>
   <body class="grim-checkout-wizard">
     <header>
@@ -135,6 +135,11 @@
                 autocomplete="shipping postal-code"
                 maxlength="30"
             /></label>
+            <div class="checkout-save-address">
+              <button type="button" id="saveDeliveryAddress" class="secondary-action">SAVE DELIVERY ADDRESS TO MY GRIM ACCOUNT</button>
+              <p id="deliverySaveStatus" class="note" aria-live="polite">Your details stay on this page while you navigate. Save an address to reuse it on future checkouts.</p>
+              <a href="/delivery-request.html">NO COURIERS? REQUEST OR VIEW MANUAL DELIVERY QUOTE →</a>
+            </div>
           </section>
           <section>
             <h2>03 / BILLING</h2>
@@ -194,8 +199,12 @@
             </div>
             <label class="choice"
               ><input id="saveBilling" type="checkbox" />Save this billing
-              address to my test account</label
+              address to my GRIM account when payment starts</label
             >
+            <div class="checkout-save-address">
+              <button type="button" id="saveBillingAddress" class="secondary-action">SAVE BILLING ADDRESS NOW</button>
+              <p class="note" id="billingSaveStatus" aria-live="polite">To save billing now, uncheck “Same as delivery” and enter a billing address.</p>
+            </div>
           </section>
           <section>
             <h2>04 / PAYMENT</h2>
