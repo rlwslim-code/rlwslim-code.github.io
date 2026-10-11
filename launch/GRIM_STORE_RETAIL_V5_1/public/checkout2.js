@@ -77,7 +77,7 @@
   // Explicit opt-in to save address to account; never store card data or payments in drafts.
   async function saveAccountAddress(prefix, statusId) {
     if (!customer) throw Error("Please sign in before saving your address.");
-    const a = read(prefix);
+    const a = prefix === "billing" && $("billingSame").checked ? read("shipping") : read(prefix);
     if (!a.address || !a.city || !a.state || !a.country) throw Error("Enter street address, city, state, and country before saving.");
     const message = $(statusId);
     message.textContent = "Saving securely to your GRIM account…";
@@ -631,6 +631,7 @@
   };
   $("billingSame").onchange = () => {
     $("billingFields").hidden = $("billingSame").checked;
+    if ($("billingSame").checked) fill("billing", read("shipping"));
     for (const n of ["Address", "City", "State"])
       fields[`billing${n}`].required = !$("billingSame").checked;
   };
