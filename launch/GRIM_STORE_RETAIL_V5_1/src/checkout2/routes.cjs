@@ -67,7 +67,7 @@ function createRoutes({
     });
   });
   router.use(async (req, res, next) => {
-    const standaloneQuoteRoute = req.path === '/shipping/hybrid/account' || req.path === '/shipping/hybrid/requests' || req.path === '/shipping/hybrid/request';
+    const standaloneQuoteRoute = req.path === '/shipping/hybrid/account' || req.path === '/shipping/hybrid/requests' || req.path === '/shipping/hybrid/request' || req.path === '/shipping/hybrid/pay';
     if (!engine && !standaloneQuoteRoute && req.path !== '/webhook')
       return res
         .status(503)
@@ -187,7 +187,17 @@ function createRoutes({
   }));
   router.get('/shipping/hybrid/requests',wrap(async(req,res)=>{
     if(!quoteRequests)throw new CheckoutError('FEATURE_DISABLED','Manual quote requests are disabled.',503);
-    res.json({requests:await quoteRequests.listCustomer(req.checkoutCustomer.id)});
+    res.json({requests:await quoteRequests.listCustomer(req.checkoutCustomer.id),paymentEnabled:!!(engine&&config.mode==='live'&&config.quotePaymentsEnabled===true&&config.acceptNewOrders)});
+  }));
+  // Live payment for an administrator-confirmed manual quote only.
+  // Separate feature flag: ordinary courier checkout does not unlock this route.
+  router.post('/shipping/hybrid/pay',wrap(async(req,res)=>{
+    if(config.mode!=='live'||config.quotePaymentsEnabled!==true||!config.ready||!quoteRequests)
+      throw new CheckoutError('PAYMENTS_LOCKED','GRIM quotation payments are not yet enabled.',503);
+    const quoteId=String(req.body?.quoteId||'');
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quoteId))
+      throw new CheckoutError('INVALID_QUOTE_ID','Choose a valid confirmed quotation.',400);
+    res.json(await engine.startManualQuote({quoteId,customerId:req.checkoutCustomer.id,email:req.checkoutCustomer.email}));
   }));
   router.post(
     "/addresses",

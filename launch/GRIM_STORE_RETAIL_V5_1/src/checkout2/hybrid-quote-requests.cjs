@@ -23,16 +23,24 @@ function createService({db,catalog,now=()=>new Date(),uuid=randomUUID}){
   return {id:data.id,status:data.status,subtotalKobo:Number(data.subtotal_kobo),expiresAt:data.expires_at};
  }
  async function listCustomer(customerId){
-  const {data,error}=await table().select('id,status,subtotal_kobo,fee_kobo,total_kobo,expires_at,created_at').eq('customer_id',String(customerId)).order('created_at',{ascending:false}).limit(40);
+  const {data,error}=await table().select('id,status,subtotal_kobo,fee_kobo,total_kobo,expires_at,created_at,checkout_reference').eq('customer_id',String(customerId)).order('created_at',{ascending:false}).limit(40);
   if(error)throw fail('QUOTES_UNAVAILABLE','Could not load your requests.',503);
-  return (data||[]).map(view);
+  const references=[...new Set((data||[]).map(r=>r.checkout_reference).filter(Boolean))];
+  let attempts=[];
+  if(references.length){
+   const result=await db.from('grim2_attempts').select('reference,status,authorization_url,order_id').in('reference',references).eq('customer_id',String(customerId));
+   if(result.error)throw fail('QUOTES_UNAVAILABLE','Could not load payment statuses.',503);
+   attempts=result.data||[];
+  }
+  const statuses=new Map(attempts.map(a=>[a.reference,a]));
+  return (data||[]).map(r=>({...view(r),paymentStatus:statuses.get(r.checkout_reference)?.status||'not_started',authorizationUrl:statuses.get(r.checkout_reference)?.authorization_url||null,orderId:statuses.get(r.checkout_reference)?.order_id||null}));
  }
  async function listAdmin(){
   const {data,error}=await table().select('id,status,subtotal_kobo,fee_kobo,total_kobo,expires_at,created_at,snapshot').order('created_at',{ascending:false}).limit(100);
   if(error)throw fail('QUOTES_UNAVAILABLE','Could not load quote requests.',503);
   return (data||[]).map(view);
  }
- function view(r){return {id:r.id,status:r.status,subtotalKobo:Number(r.subtotal_kobo),feeKobo:r.fee_kobo==null?null:Number(r.fee_kobo),totalKobo:r.total_kobo==null?null:Number(r.total_kobo),expiresAt:r.expires_at,createdAt:r.created_at, ...(r.snapshot?{snapshot:r.snapshot}:{})};}
+ function view(r){return {id:r.id,status:r.status,subtotalKobo:Number(r.subtotal_kobo),feeKobo:r.fee_kobo==null?null:Number(r.fee_kobo),totalKobo:r.total_kobo==null?null:Number(r.total_kobo),expiresAt:r.expires_at,createdAt:r.created_at,checkoutReference:r.checkout_reference||null, ...(r.snapshot?{snapshot:r.snapshot}:{})};}
  async function setQuote({id,feeKobo}){
   validateFee(feeKobo);
   if(!/^[0-9a-f-]{36}$/i.test(String(id)))throw fail('INVALID_QUOTE_ID','Invalid quote request.');

@@ -56,6 +56,9 @@ function createSupabaseStore({ url, serviceKey, fetcher = fetch, mode = "test" }
     return res.json();
   }
   return {
+    startManualQuote: ({quoteId,customerId,email,reference}) => rpc("grim2_start_manual_quote", {
+      p_quote_id:quoteId,p_customer:customerId,p_email:email,p_reference:reference,
+    }),
     health: () => rpc(mode === "live" ? "grim2_health_live" : "grim2_health"),
     create: (r) =>
       rpc("grim2_start", {

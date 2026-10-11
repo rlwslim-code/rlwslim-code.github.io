@@ -107,7 +107,11 @@ function createEngine({
       if (row.quote.shippingExpiresAt && Date.now() >= row.quote.shippingExpiresAt && row.status !== "paid") throw new CheckoutError("SHIPPING_QUOTE_EXPIRED_OR_CHANGED","This wallet quote expired. Contact GRIM to close the unpaid attempt before requesting another quote.",409);
       return wallet(row);
     }
+    return initiateCard(row);
+  }
+  async function initiateCard(row, callbackPath = "/checkout2.html") {
     if (row.status === "paid" || row.authorization_url) return view(row);
+    if (["initializing", "initialization_unknown", "reconciliation_required"].includes(row.status)) return { ...view(row), message:"Existing payment attempt needs verification. Do not pay twice." };
     if (!(await store.claim(row.reference)))
       return view(await store.get(row.reference));
     try {
@@ -116,11 +120,11 @@ function createEngine({
         email: row.email,
         amount: row.quote.totalKobo,
         currency: "NGN",
-        callback_url: `${callbackBase}/checkout2.html?reference=${encodeURIComponent(row.reference)}`,
+        callback_url: `${callbackBase}${callbackPath}?reference=${encodeURIComponent(row.reference)}`,
         channels: ["card"],
         metadata: {
           grim_checkout2: true,
-          cancel_action: `${callbackBase}/checkout2.html?reference=${encodeURIComponent(row.reference)}`,
+          cancel_action: `${callbackBase}${callbackPath}?reference=${encodeURIComponent(row.reference)}`,
         },
       });
       if (!authorizationOK(payment?.authorization_url))
@@ -183,7 +187,15 @@ function createEngine({
       };
     }
   }
+  async function startManualQuote({quoteId,customerId,email}) {
+    if (!acceptNewOrders) throw new CheckoutError("ORDERING_PAUSED","Payments are paused.",503);
+    if (mode !== "live" || !store.startManualQuote) throw new CheckoutError("FEATURE_DISABLED","Confirmed quote payment unavailable.",503);
+    const row = await store.startManualQuote({quoteId,customerId,email,reference:`GRIM2-${crypto.randomUUID()}`});
+    if (!row || row.customer_id !== String(customerId) || row.method !== "card") throw new CheckoutError("PAYMENT_MISMATCH","Payment could not be confirmed.",503);
+    return initiateCard(row,"/delivery-request.html");
+  }
   return {
+    startManualQuote,
     start,
     closeWallet: async ({reference,customerId}) => { await owned(reference,customerId); return view(await store.cancelWallet(reference)); },
     quote,
