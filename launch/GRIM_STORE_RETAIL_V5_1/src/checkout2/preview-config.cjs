@@ -51,6 +51,11 @@ function previewConfig(env = process.env) {
   if (!env.SESSION_SECRET || env.SESSION_SECRET.length < 32)
     blockers.push("SESSION_SECRET must contain at least 32 characters.");
   return { enabled, ready: blockers.length === 0, blockers, preview, local,
-    production, mode, secret, url, serviceKey, base, walletEnabled, shippingKobo, quotePaymentsEnabled: production && env.GRIM_QUOTE_LIVE_PAYMENTS_ENABLED === "true", shippingRequired: true, acceptNewOrders: production ? env.GRIM_CHECKOUT2_ACCEPT_NEW_ORDERS === "true" : env.GRIM_CHECKOUT2_ACCEPT_NEW_ORDERS !== "false" };
+    production, mode, secret, url, serviceKey, base, walletEnabled, shippingKobo, quotePaymentsEnabled: production && env.GRIM_QUOTE_LIVE_PAYMENTS_ENABLED === "true",
+    // Test-only allowlist: refuse live quote charges unless the matching UUID is set.
+    // Do not remove this gate until a real payment and order-recording regression has passed.
+    quoteTestId: production && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(env.GRIM_CHECKOUT2_LIVE_TEST_QUOTE_ID || "").trim())
+      ? String(env.GRIM_CHECKOUT2_LIVE_TEST_QUOTE_ID).trim().toLowerCase() : null,
+    shippingRequired: true, acceptNewOrders: production ? env.GRIM_CHECKOUT2_ACCEPT_NEW_ORDERS === "true" : env.GRIM_CHECKOUT2_ACCEPT_NEW_ORDERS !== "false" };
 }
 module.exports = { previewConfig };
