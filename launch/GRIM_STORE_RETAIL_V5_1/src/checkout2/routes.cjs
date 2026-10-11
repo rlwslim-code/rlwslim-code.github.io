@@ -187,16 +187,40 @@ function createRoutes({
   }));
   router.get('/shipping/hybrid/requests',wrap(async(req,res)=>{
     if(!quoteRequests)throw new CheckoutError('FEATURE_DISABLED','Manual quote requests are disabled.',503);
-    res.json({requests:await quoteRequests.listCustomer(req.checkoutCustomer.id),paymentEnabled:!!(engine&&config.mode==='live'&&config.quotePaymentsEnabled===true&&config.acceptNewOrders)});
+    const requests = await quoteRequests.listCustomer(req.checkoutCustomer.id);
+    // Never expose a global payment-enabled switch in a controlled live test.
+    // The button is offered only for the merchant-approved quotation UUID.
+    const canPay = !!(engine && config.ready && config.mode === 'live' &&
+      config.quotePaymentsEnabled === true && config.acceptNewOrders === true && config.quoteTestId);
+    res.json({ requests: requests.map(q => {
+      const approved = !!config.quoteTestId && String(q.id).toLowerCase() === config.quoteTestId;
+      const validUntil = Date.parse(q.expiresAt || '');
+      const expired = !Number.isFinite(validUntil) || validUntil <= Date.now();
+      const amount = Number(q.totalKobo);
+      let paymentUnavailableReason = null;
+      if (!engine || !config.ready || config.mode !== 'live') paymentUnavailableReason = 'Live checkout is not ready.';
+      else if (!config.quotePaymentsEnabled) paymentUnavailableReason = 'Quotation payments are disabled in Vercel.';
+      else if (!config.acceptNewOrders) paymentUnavailableReason = 'New checkout orders are disabled in Vercel.';
+      else if (!config.quoteTestId) paymentUnavailableReason = 'The approved test quotation is not configured in Vercel.';
+      else if (!approved) paymentUnavailableReason = 'This quotation is not approved for the controlled live test.';
+      else if (q.status !== 'QUOTE_READY') paymentUnavailableReason = 'The delivery quotation is not ready.';
+      else if (q.paymentStatus === 'paid') paymentUnavailableReason = 'Payment has already been completed.';
+      else if (expired) paymentUnavailableReason = 'This quotation has expired.';
+      else if (!Number.isSafeInteger(amount) || amount < 100) paymentUnavailableReason = 'The confirmed quotation amount is invalid.';
+      return {...q, paymentEnabled: canPay && !paymentUnavailableReason,
+        paymentUnavailableReason};
+    }), paymentEnabled: false });
   }));
   // Live payment for an administrator-confirmed manual quote only.
   // Separate feature flag: ordinary courier checkout does not unlock this route.
   router.post('/shipping/hybrid/pay',wrap(async(req,res)=>{
-    if(config.mode!=='live'||config.quotePaymentsEnabled!==true||!config.ready||!quoteRequests)
+    if(config.mode!=='live'||config.quotePaymentsEnabled!==true||!config.ready||!quoteRequests||!config.acceptNewOrders)
       throw new CheckoutError('PAYMENTS_LOCKED','GRIM quotation payments are not yet enabled.',503);
     const quoteId=String(req.body?.quoteId||'');
     if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quoteId))
       throw new CheckoutError('INVALID_QUOTE_ID','Choose a valid confirmed quotation.',400);
+    if(!config.quoteTestId || quoteId.toLowerCase() !== config.quoteTestId)
+      throw new CheckoutError('TEST_QUOTE_ONLY','Live payment is currently restricted to the approved merchant test quotation.',403);
     res.json(await engine.startManualQuote({quoteId,customerId:req.checkoutCustomer.id,email:req.checkoutCustomer.email}));
   }));
   router.post(
@@ -212,15 +236,18 @@ function createRoutes({
   );
   router.post(
     "/start",
-    wrap(async (req, res) =>
+    wrap(async (req, res) => {
+      // Merchant-owned quote test must not activate ordinary checkout.
+      if (config.mode === 'live' && config.quoteTestId)
+        throw new CheckoutError('CONTROLLED_QUOTE_TEST_ONLY', 'Only the approved delivery quotation can start a payment during this test.', 403);
       res.json(
         await engine.start({
           ...req.body,
           customerId: req.checkoutCustomer.id,
           email: req.checkoutCustomer.email,
         }),
-      ),
-    ),
+      );
+    }),
   );
   router.post(
     "/confirm",

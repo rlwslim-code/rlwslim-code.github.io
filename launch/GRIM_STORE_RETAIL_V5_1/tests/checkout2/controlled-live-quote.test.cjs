@@ -40,7 +40,7 @@ async function invoke(handler, body={}){
   await handler({checkoutCustomer:{id:'customer-1',email:'buyer@example.com'},body},res);
   return res;
 }
-const quote = id => ({id,status:'QUOTE_READY',paymentStatus:'not_started',totalKobo:150000,subtotalKobo:50000});
+const quote = id => ({id,status:'QUOTE_READY',paymentStatus:'not_started',totalKobo:150000,subtotalKobo:50000,expiresAt:'2030-10-18T10:40:36Z'});
 
 test('missing or malformed merchant quote allowlist fails closed',()=>{
   assert.equal(previewConfig(configEnv).quoteTestId, null);
@@ -128,4 +128,17 @@ test('wrong charge amount is rejected without calling order completion',async()=
     callbackBase:'https://www.grimwear.store',mode:'live'});
   await assert.rejects(()=>engine.confirm({reference:ref,customerId:'customer-1'}), e=>e.code==='PAYMENT_MISMATCH');
   assert.equal(completes,0);
+});
+
+test('customer listing describes disabled flags and expired quote without enabling payment',async()=>{
+  const config=previewConfig({...configEnv,GRIM_CHECKOUT2_LIVE_TEST_QUOTE_ID:goodId,GRIM_QUOTE_LIVE_PAYMENTS_ENABLED:'false'});
+  const routes=installRouter({configuration:config,requests:[quote(goodId)],store:{},provider:{}});
+  const res=await invoke(routes.routes.get.get('/shipping/hybrid/requests'));
+  assert.equal(res.result.requests[0].paymentEnabled,false);
+  assert.match(res.result.requests[0].paymentUnavailableReason,/disabled in Vercel/);
+  const enabled=previewConfig({...configEnv,GRIM_CHECKOUT2_LIVE_TEST_QUOTE_ID:goodId});
+  const routes2=installRouter({configuration:enabled,requests:[{...quote(goodId),expiresAt:'2020-01-01T00:00:00Z'}],store:{},provider:{}});
+  const expired=await invoke(routes2.routes.get.get('/shipping/hybrid/requests'));
+  assert.equal(expired.result.requests[0].paymentEnabled,false);
+  assert.match(expired.result.requests[0].paymentUnavailableReason,/expired/);
 });
