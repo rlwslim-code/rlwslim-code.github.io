@@ -54,7 +54,6 @@ function createRoutes({
       ready: config.ready && dbReady,
       mode: config.mode || "test",
       walletEnabled: config.walletEnabled !== false,
-      bankTransferEnabled: config.bankTransferEnabled === true,
       currency: "NGN",
       acceptingOrders: config.acceptNewOrders !== false,
       shippingRequired: config.shippingRequired === true || config.mode === 'live',
@@ -209,13 +208,7 @@ function createRoutes({
       else if (expired) paymentUnavailableReason = 'This quotation has expired.';
       else if (!Number.isSafeInteger(amount) || amount < 100) paymentUnavailableReason = 'The confirmed quotation amount is invalid.';
       return {...q, paymentEnabled: canPay && !paymentUnavailableReason,
-        paymentUnavailableReason,
-        availableMethods: {
-          card: canPay && !paymentUnavailableReason,
-          bank_transfer: canPay && !paymentUnavailableReason && config.bankTransferEnabled === true,
-          wallet: canPay && !paymentUnavailableReason && config.quoteWalletEnabled === true,
-        },
-      };
+        paymentUnavailableReason};
     }), paymentEnabled: false });
   }));
   // Live payment for an administrator-confirmed manual quote only.
@@ -228,14 +221,7 @@ function createRoutes({
       throw new CheckoutError('INVALID_QUOTE_ID','Choose a valid confirmed quotation.',400);
     if(!config.quoteTestId || quoteId.toLowerCase() !== config.quoteTestId)
       throw new CheckoutError('TEST_QUOTE_ONLY','Live payment is currently restricted to the approved merchant test quotation.',403);
-    const method = req.body?.method || 'card';
-    if (!['card','bank_transfer','wallet'].includes(method))
-      throw new CheckoutError('INVALID_METHOD','Choose card, bank transfer or GRIM Wallet.',400);
-    res.json(await engine.startManualQuote({
-      quoteId, customerId:req.checkoutCustomer.id, email:req.checkoutCustomer.email,
-      method, bankTransferEnabled:config.bankTransferEnabled === true,
-      walletCheckoutEnabled:config.quoteWalletEnabled === true,
-    }));
+    res.json(await engine.startManualQuote({quoteId,customerId:req.checkoutCustomer.id,email:req.checkoutCustomer.email}));
   }));
   router.post(
     "/addresses",

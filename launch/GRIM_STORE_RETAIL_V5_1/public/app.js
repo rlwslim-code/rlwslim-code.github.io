@@ -1,0 +1,875 @@
+const MARKETS={NG:{name:'Nigeria',currency:'NGN',locale:'en-NG',rate:1},US:{name:'United States',currency:'USD',locale:'en-US',rate:0.00067},GB:{name:'United Kingdom',currency:'GBP',locale:'en-GB',rate:0.00050},CA:{name:'Canada',currency:'CAD',locale:'en-CA',rate:0.00091},AU:{name:'Australia',currency:'AUD',locale:'en-AU',rate:0.00102},DE:{name:'Germany',currency:'EUR',locale:'de-DE',rate:0.00057},FR:{name:'France',currency:'EUR',locale:'fr-FR',rate:0.00057},IT:{name:'Italy',currency:'EUR',locale:'it-IT',rate:0.00057},ES:{name:'Spain',currency:'EUR',locale:'es-ES',rate:0.00057},NL:{name:'Netherlands',currency:'EUR',locale:'nl-NL',rate:0.00057},GH:{name:'Ghana',currency:'GHS',locale:'en-GH',rate:0.0073},ZA:{name:'South Africa',currency:'ZAR',locale:'en-ZA',rate:0.0114},KE:{name:'Kenya',currency:'KES',locale:'en-KE',rate:0.086},AE:{name:'United Arab Emirates',currency:'AED',locale:'en-AE',rate:0.00246},JP:{name:'Japan',currency:'JPY',locale:'ja-JP',rate:0.100}};
+const CURRENCY_RATES={NGN:1,USD:.00067,GBP:.00050,EUR:.00057,CAD:.00091,AUD:.00102,GHS:.0073,ZAR:.0114,KES:.086,AED:.00246,JPY:.100};
+let market=JSON.parse(localStorage.getItem('grimMarket')||'null')||{country:'NG',currency:'NGN'};
+function marketInfo(){return MARKETS[market.country]||MARKETS.NG}
+window.GRIM_MARKETS=MARKETS;window.grimMarketInfo=marketInfo;window.grimDisplayFromNGN=function(v){const m=marketInfo();return new Intl.NumberFormat(m.locale,{style:'currency',currency:m.currency,maximumFractionDigits:2}).format(Number(v||0)*Number(m.rate||1));};
+function money(n){const m=marketInfo(), value=(Number(n)||0)*Number(m.rate||1);return new Intl.NumberFormat(m.locale,{style:'currency',currency:m.currency,maximumFractionDigits:m.currency==='JPY'?0:2}).format(value)}
+function openMarket(){fillMarket();E('marketModal')?.classList.add('open')}function closeMarket(){E('marketModal')?.classList.remove('open')}
+function fillMarket(){let c=E('marketCountry'),u=E('marketCurrency');if(!c||!u)return;c.innerHTML=Object.entries(MARKETS).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('');c.value=market.country||'NG';const m=MARKETS[c.value]||MARKETS.NG;u.innerHTML=`<option value="${m.currency}">${m.currency}</option>`;u.value=m.currency;u.disabled=true}
+function saveMarket(){const country=E('marketCountry').value,m=MARKETS[country]||MARKETS.NG;market={country,currency:m.currency,manual:true};localStorage.setItem('grimMarket',JSON.stringify(market));updateMarketUI();render();draw();closeMarket()}
+function updateMarketUI(){let x=marketInfo();market.currency=x.currency;if(E('marketLabel'))E('marketLabel').textContent=`${x.name} · ${x.currency}`}
+async function detectMarket(){try{let saved=JSON.parse(localStorage.getItem('grimMarket')||'null');if(saved?.manual&&saved?.country&&MARKETS[saved.country]){const m=MARKETS[saved.country];market={country:saved.country,currency:m.currency,manual:true}}else{let r=await fetch('/api/market',{cache:'no-store'}),j=await r.json();const country=j.country&&MARKETS[j.country]?j.country:'NG',m=MARKETS[country]||MARKETS.NG;market={country,currency:m.currency,manual:false}}}catch(e){market={country:'NG',currency:'NGN',manual:false}}localStorage.setItem('grimMarket',JSON.stringify(market));updateMarketUI()}
+
+const FALLBACK_CATALOG=[{"id":1,"name":"Rose Reaper","type":"Hoodie","price":28000,"color":"Pink"},{"id":2,"name":"Veil","type":"Hoodie","price":28000,"color":"White"},{"id":3,"name":"Abyss","type":"Hoodie","price":28000,"color":"Blue"},{"id":4,"name":"Eclipse Gold","type":"Hoodie","price":28000,"color":"Yellow"},{"id":5,"name":"Rose Reaper","type":"Hoodie","price":28000,"color":"Pink"},{"id":6,"name":"Eclipse Gold","type":"Armless","price":15000,"color":"Yellow"},{"id":7,"name":"Bloodline","type":"Hoodie","price":28000,"color":"Red"},{"id":8,"name":"Obsidian","type":"Armless","price":15000,"color":"Black"},{"id":10,"name":"Obsidian / Veil","type":"Tee","price":18000,"color":"Mixed"},{"id":11,"name":"Veil / Abyss","type":"Hoodie","price":28000,"color":"Mixed"},{"id":12,"name":"Veil","type":"Tee","price":18000,"color":"White"},{"id":13,"name":"Veil / Abyss / Obsidian","type":"Armless","price":15000,"color":"Mixed"},{"id":14,"name":"Void Violet","type":"Hoodie","price":28000,"color":"Purple"},{"id":15,"name":"Veil / Obsidian","type":"Hoodie","price":28000,"color":"Mixed"},{"id":16,"name":"Obsidian / Veil","type":"Hoodie","price":28000,"color":"Mixed"},{"id":17,"name":"Rose Reaper","type":"Hoodie","price":28000,"color":"Pink"},{"id":18,"name":"Obsidian","type":"Hoodie","price":28000,"color":"Black"},{"id":19,"name":"Abyss","type":"Hoodie","price":28000,"color":"Blue"},{"id":20,"name":"Void Violet","type":"Hoodie","price":28000,"color":"Purple"},{"id":21,"name":"Rose Reaper","type":"Tee","price":18000,"color":"Pink"},{"id":22,"name":"Veil","type":"Hoodie","price":28000,"color":"White"},{"id":23,"name":"Obsidian","type":"Tee","price":18000,"color":"Black"},{"id":24,"name":"Veil / Obsidian","type":"Complete GRIM Outfit","price":90000,"color":"Mixed"},{"id":25,"name":"Obsidian","type":"Hoodie","price":28000,"color":"Black"},{"id":26,"name":"Rose Reaper","type":"Hoodie","price":28000,"color":"Pink"}];
+let catalog=FALLBACK_CATALOG.slice(),mode='login',shopPage=1;
+const E=id=>document.getElementById(id),M=n=>money(n);
+const storedCart=JSON.parse(localStorage.getItem('grimCart')||'[]');
+let cart=storedCart.map(x=>{const p=catalog.find(v=>v.id==x.id);return p?{...p,size:x.size||'M',qty:Math.max(1,+x.qty||1)}:null}).filter(Boolean);
+function save(){localStorage.setItem('grimCart',JSON.stringify(cart))}
+function productVisual(p){return p.image||(window.GRIM_DESIGNS||[])[p.id-1]||'/assets/grim-wordmark.png'}
+function render(){const root=E('products');if(!root)return;let q=(E('search')?.value||'').toLowerCase(),cat=E('category')?.value||'all',col=E('color')?.value||'all',sort=E('sort')?.value||'featured';let list=catalog.filter(p=>(!q||`${p.name} ${p.color} ${p.type} ravkael`.toLowerCase().includes(q))&&(cat==='all'||p.type===cat)&&(col==='all'||p.color===col));if(sort==='low')list.sort((a,b)=>a.price-b.price);if(sort==='high')list.sort((a,b)=>b.price-a.price);const per=8,pages=Math.max(1,Math.ceil(list.length/per));shopPage=Math.min(shopPage,pages);let shown=list.slice((shopPage-1)*per,shopPage*per);E('resultCount').textContent=`${list.length} PIECES · PAGE ${shopPage} OF ${pages}`;root.innerHTML=shown.map(p=>`<article class="card"><div class="pic"><img src="${productVisual(p)}" loading="lazy" alt="${p.name} ${p.type}"><span class="type-pill">${p.type}</span></div><div class="info"><p class="colorway">${p.color} · RAV’KAEL</p><div class="info-row"><h3>${p.name}</h3><b>${M(p.price)}</b></div><small class="product-type">${p.type}</small><label class="size-label">SIZE <select id="size-${p.id}"><option>S</option><option selected>M</option><option>L</option><option>XL</option><option>XXL</option></select></label><button onclick="add(${p.id})">ADD TO CART 🛒</button></div></article>`).join('')||'<p class="empty-note">No pieces match your filters.</p>';let pg=E('pagination');if(pg)pg.innerHTML=pages>1?`<button ${shopPage===1?'disabled':''} onclick="shopPage--;render();scrollToShop()">← PREVIOUS</button><span>${shopPage} / ${pages}</span><button ${shopPage===pages?'disabled':''} onclick="shopPage++;render();scrollToShop()">NEXT →</button>`:''}
+async function init(){
+  await detectMarket();
+  catalog=FALLBACK_CATALOG.slice();
+  try{const r=await fetch('/api/products',{cache:'no-store'});if(r.ok){const live=await r.json();if(Array.isArray(live)&&live.length)catalog=live}}catch(e){}
+  cart=cart.map(x=>{const p=catalog.find(v=>v.id==x.id);return p?{...p,size:x.size||'M',qty:Math.max(1,+x.qty||1)}:null}).filter(Boolean);save();
+  const colorSelect=E('color');
+  if(colorSelect){
+    const colors=[...new Set(catalog.map(p=>p.color))];
+    colorSelect.innerHTML='<option value="all">All colorways</option>'+colors.map(c=>`<option value="${c}">${c}</option>`).join('');
+  }
+  render();
+  ['search','category','color','sort'].forEach(id=>E(id)?.addEventListener(id==='search'?'input':'change',()=>{shopPage=1;render()}));
+  try{let u=await fetch('/api/me').then(r=>r.json());if(u&&E('acct'))E('acct').textContent=u.name.toUpperCase()}catch(e){}
+  draw();
+}
+function add(id){let p=catalog.find(v=>v.id==id);if(!p)return;let size=E('size-'+id)?.value||'M',x=cart.find(v=>v.id==id&&v.size===size);x?x.qty++:cart.push({...p,size,qty:1});save();draw();openBag()}
+function qty(i,d){cart[i].qty+=d;if(cart[i].qty<1)cart.splice(i,1);save();draw()}
+function removeItem(i){cart.splice(i,1);save();draw()}
+function draw(){if(E('count'))E('count').textContent=cart.reduce((a,x)=>a+x.qty,0);if(E('items'))E('items').innerHTML=cart.map((x,i)=>`<div class="cart-line"><img src="${productVisual(x)}"><div><b>${x.name}</b><small>${x.color} · ${x.size}</small><div class="qty"><button onclick="qty(${i},-1)">−</button><span>${x.qty}</span><button onclick="qty(${i},1)">+</button><button class="remove" onclick="removeItem(${i})">REMOVE</button></div></div><strong>${M(x.price*x.qty)}</strong></div>`).join('')||'<p>Your bag is empty.</p>';if(E('total'))E('total').textContent=M(cart.reduce((a,x)=>a+x.price*x.qty,0))}
+function openBag(){E('bag')?.classList.add('open')}function closeBag(){E('bag')?.classList.remove('open')}function openAuth(){E('auth')?.classList.add('open')}function closeAuth(){E('auth')?.classList.remove('open')}function setMode(x){
+  mode = x;
+
+  const registering = x === 'register';
+
+  const nameFields = E('authNameFields');
+  const phone = E('aPhone');
+  const phoneWrap = phone?.closest('.auth-phone-wrap');
+  const confirm = E('aConfirm');
+  const rules = E('passwordRules');
+  const pass = E('aPass');
+
+  if(nameFields){
+    nameFields.style.display = registering ? 'grid' : 'none';
+  }
+
+  if(phoneWrap){
+    phoneWrap.style.display = registering ? 'block' : 'none';
+  }
+
+  if(confirm){
+    confirm.style.display = registering ? 'block' : 'none';
+    confirm.required = registering;
+    if(!registering) confirm.value = '';
+  }
+
+  if(rules){
+  rules.style.display = 'none';
+}
+
+  if(E('aFirst')) E('aFirst').required = registering;
+  if(E('aLast')) E('aLast').required = registering;
+  if(phone) phone.required = registering;
+
+  if(pass){
+    pass.autocomplete = registering ? 'new-password' : 'current-password';
+  }
+
+  if(E('aMsg')){
+    E('aMsg').textContent = '';
+  }
+
+  updateGrimPasswordRules();
+}
+  async function openCheckout(){
+  if(!cart.length) return;
+
+  try{
+    const response = await fetch('/api/me', {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store'
+    });
+
+    let user = null;
+
+    if(response.ok){
+      try{
+        user = await response.json();
+      }catch(e){
+        user = null;
+      }
+    }
+
+    if(!response.ok || !user || !user.email){
+      E('bag')?.classList.remove('open');
+
+      if(typeof setMode === 'function'){
+        setMode('login');
+      }
+
+      E('auth')?.classList.add('open');
+      return;
+    }
+
+  }catch(error){
+    E('bag')?.classList.remove('open');
+
+    if(typeof setMode === 'function'){
+      setMode('login');
+    }
+
+    E('auth')?.classList.add('open');
+    return;
+  }
+
+  E('bag')?.classList.remove('open');
+
+  if(!E('grimCheckoutForm')){
+    buildGrimCheckout();
+  }
+
+  const form = E('grimCheckoutForm');
+  const payment = E('paymentStep');
+
+  if(form) form.style.display = 'block';
+  if(payment) payment.style.display = 'none';
+
+  E('checkout')?.classList.add('open');
+}
+function closeCheckout(){
+  E('checkout')?.classList.remove('open');
+
+  document.body.style.overflow = '';
+  document.documentElement.style.overflow = '';
+}
+// ===== GRIM LIVE PASSWORD CHECK =====
+const grimPass = E('aPass');
+const grimConfirm = E('aConfirm');
+
+function grimPasswordRule(id, passed, label, touched = true){
+  const el = E(id);
+  if(!el) return;
+
+  if(!touched){
+    el.textContent = `○ ${label}`;
+    el.style.color = '#777';
+    return;
+  }
+
+  if(passed){
+    el.textContent = `✓ ${label}`;
+    el.style.color = '#168a45';
+  }else{
+    el.textContent = `○ ${label}`;
+    el.style.color = '#777';
+  }
+}
+
+function updateGrimPasswordRules(){
+  const password = grimPass?.value || '';
+  const confirmPassword = grimConfirm?.value || '';
+
+  const touched = password.length > 0;
+
+  grimPasswordRule(
+    'ruleLength',
+    password.length >= 8,
+    'At least 8 characters',
+    touched
+  );
+
+  grimPasswordRule(
+    'ruleUpper',
+    /[A-Z]/.test(password),
+    'One uppercase letter',
+    touched
+  );
+
+  grimPasswordRule(
+    'ruleLower',
+    /[a-z]/.test(password),
+    'One lowercase letter',
+    touched
+  );
+
+  grimPasswordRule(
+    'ruleNumber',
+    /[0-9]/.test(password),
+    'One number',
+    touched
+  );
+
+  grimPasswordRule(
+    'ruleSpecial',
+    /[^A-Za-z0-9]/.test(password),
+    'One special character',
+    touched
+  );
+
+  grimPasswordRule(
+    'ruleMatch',
+    confirmPassword.length > 0 && password === confirmPassword,
+    'Passwords match',
+    confirmPassword.length > 0
+  );
+}
+
+function showGrimPasswordRules(){
+  const rules = E('passwordRules');
+
+  if(mode !== 'register' || !rules) return;
+
+  rules.style.display = 'flex';
+  rules.style.flexDirection = 'column';
+  rules.style.alignItems = 'flex-start';
+  rules.style.gap = '6px';
+  rules.style.margin = '10px 0 14px';
+  rules.style.fontSize = '13px';
+  rules.style.lineHeight = '1.4';
+}
+
+function hideGrimPasswordRules(){
+  setTimeout(() => {
+    const active = document.activeElement;
+
+    if(
+      active !== grimPass &&
+      active !== grimConfirm &&
+      E('passwordRules')
+    ){
+      E('passwordRules').style.display = 'none';
+    }
+  }, 100);
+}
+
+grimPass?.addEventListener('focus', showGrimPasswordRules);
+grimConfirm?.addEventListener('focus', showGrimPasswordRules);
+
+grimPass?.addEventListener('input', () => {
+  showGrimPasswordRules();
+  updateGrimPasswordRules();
+});
+
+grimConfirm?.addEventListener('input', () => {
+  showGrimPasswordRules();
+  updateGrimPasswordRules();
+});
+
+grimPass?.addEventListener('blur', hideGrimPasswordRules);
+grimConfirm?.addEventListener('blur', hideGrimPasswordRules);
+
+updateGrimPasswordRules();
+setMode('login');
+// GRIM 2FA challenge: keep the user signed out until server-side code verification succeeds.
+function grimTwoFactorView(show, hint='') {
+  const section=E('grimTwoFactor'), form=E('authForm'), tabs=document.querySelector('#auth .tabs');
+  if(section)section.hidden=!show;
+  if(form)form.hidden=show;
+  if(tabs)tabs.hidden=show;
+  if(show){
+    if(E('grimTwoFactorHint'))E('grimTwoFactorHint').textContent='Enter the six-digit code sent to '+(hint||'your email')+'.';
+    if(E('grimTwoFactorCode')){E('grimTwoFactorCode').value='';E('grimTwoFactorCode').focus();}
+    if(E('grimTwoFactorMsg'))E('grimTwoFactorMsg').textContent='';
+  }
+}
+function grimFinishAuthentication(user){
+  if(E('acct'))E('acct').textContent=(user?.name||'ACCOUNT').toUpperCase();
+  if(E('aPass'))E('aPass').value='';
+  grimTwoFactorView(false);
+  closeAuth();
+}
+if(E('grimTwoFactorForm'))E('grimTwoFactorForm').onsubmit=async e=>{
+  e.preventDefault();
+  const code=E('grimTwoFactorCode')?.value.trim()||'',msg=E('grimTwoFactorMsg'),button=E('grimTwoFactorVerify');
+  if(!/^\d{6}$/.test(code)){if(msg)msg.textContent='Enter the six-digit code.';return;}
+  button.disabled=true;if(msg)msg.textContent='Verifying your code…';
+  try{
+    const r=await fetch('/api/auth/2fa/verify',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){if(msg)msg.textContent=j.error||'Verification failed. Please try again.';return;}
+    const me=await fetch('/api/me',{credentials:'include',cache:'no-store'});
+    const user=me.ok?await me.json().catch(()=>null):null;
+    if(!user?.email){if(msg)msg.textContent='Code accepted, but the session could not be confirmed. Please sign in again.';return;}
+    grimFinishAuthentication(user);
+  }catch(err){if(msg)msg.textContent='Connection problem. Please try again.';}
+  finally{button.disabled=false;}
+};
+if(E('grimTwoFactorResend'))E('grimTwoFactorResend').onclick=async()=>{
+  const button=E('grimTwoFactorResend'),msg=E('grimTwoFactorMsg');button.disabled=true;
+  try{
+    const r=await fetch('/api/auth/2fa/resend',{method:'POST',credentials:'include'});
+    const j=await r.json().catch(()=>({}));
+    if(msg)msg.textContent=r.ok?'A new code has been sent.':(j.error||'Could not resend code.');
+  }catch(err){if(msg)msg.textContent='Connection problem. Please try again.';}
+  finally{button.disabled=false;}
+};
+if(E('grimTwoFactorBack'))E('grimTwoFactorBack').onclick=()=>{grimTwoFactorView(false);if(E('aPass'))E('aPass').value='';};
+if(E('authForm')) E('authForm').onsubmit = async e => {
+  e.preventDefault();
+
+  const email = (E('aEmail')?.value || '').trim().toLowerCase();
+  const password = E('aPass')?.value || '';
+  const msg = E('aMsg');
+
+  if(msg) msg.textContent = '';
+
+  let payload = {
+    email,
+    password
+  };
+
+  if(mode === 'register'){
+    const firstName = (E('aFirst')?.value || '').trim();
+    const lastName = (E('aLast')?.value || '').trim();
+    const phone = (E('aPhone')?.value || '').trim();
+    const confirmPassword = E('aConfirm')?.value || '';
+
+    const validPassword =
+      password.length >= 8 &&
+      /[A-Z]/.test(password) &&
+      /[a-z]/.test(password) &&
+      /[0-9]/.test(password) &&
+      /[^A-Za-z0-9]/.test(password);
+
+    if(!firstName || !lastName){
+      if(msg) msg.textContent = 'Enter your first and last name.';
+      return;
+    }
+
+    if(!email){
+      if(msg) msg.textContent = 'Enter your email address.';
+      return;
+    }
+
+    if(!phone){
+      if(msg) msg.textContent = 'Enter your phone number.';
+      return;
+    }
+
+    if(!validPassword){
+      if(msg) msg.textContent = 'Complete all password requirements.';
+      return;
+    }
+
+    if(password !== confirmPassword){
+      if(msg) msg.textContent = 'Passwords do not match.';
+      return;
+    }
+
+    payload = {
+      name: `${firstName} ${lastName}`.trim(),
+      firstName,
+      lastName,
+      email,
+      phone,
+      password
+    };
+  }
+
+  try{
+    const r = await fetch('/api/' + mode, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    });
+
+    const j = await r.json();
+
+    if(!r.ok){
+      if(msg) msg.textContent = j.error || 'Unable to continue.';
+      return;
+    }
+
+    if(mode==='login' && j?.requiresTwoFactor===true){
+      grimTwoFactorView(true,j.emailHint);
+      return;
+    }
+    // A successful API response is not proof of an authenticated session.
+    const meResponse=await fetch('/api/me',{credentials:'include',cache:'no-store'});
+    const verifiedUser=meResponse.ok?await meResponse.json().catch(()=>null):null;
+    if(!verifiedUser?.email){
+      if(msg)msg.textContent='Account request succeeded, but your session could not be confirmed. Please try again.';
+      return;
+    }
+    if(msg)msg.textContent=mode==='register'?'ACCOUNT CREATED.':'WELCOME BACK.';
+    grimFinishAuthentication(verifiedUser);
+
+  }catch(error){
+    console.error('GRIM account error:', error);
+
+    if(msg){
+      msg.textContent = 'Unable to connect. Please try again.';
+    }
+  }
+};
+if(E('orderForm'))E('orderForm').onsubmit=async e=>{e.preventDefault();let r=await fetch('/api/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:E('oName').value,email:E('oEmail').value,phone:E('oPhone').value,address:E('oAddress').value,country:market.country,currency:market.currency,items:cart.map(x=>({id:x.id,qty:x.qty,size:x.size}))})}),j=await r.json();if(r.ok){E('oMsg').textContent=`ORDER #${j.orderId} RECEIVED — ${M(j.total)}`;cart=[];save();draw();E('orderForm').reset()}else E('oMsg').textContent=j.error};setMode('login');init();
+
+function toggleMobile(){E('mobileNav')?.classList.toggle('open')}
+function openSearch(){
+  document.querySelector('.grim-search-overlay')?.remove();
+  const m=document.createElement('div');m.className='grim-search-overlay';m.innerHTML=`<div class="grim-search-card"><button class="grim-search-close" type="button">×</button><small>SEARCH GRIM</small><h2>FIND YOUR PIECE</h2><input id="grimGlobalSearch" autocomplete="off" placeholder="Search tees, hoodies, colorways…"><div id="grimGlobalResults"></div></div>`;document.body.append(m);
+  const input=m.querySelector('#grimGlobalSearch'),results=m.querySelector('#grimGlobalResults');
+  const show=()=>{const q=input.value.trim().toLowerCase();const found=q?catalog.filter(p=>`${p.name} ${p.type} ${p.color} ravkael grim`.toLowerCase().includes(q)).slice(0,12):catalog.slice(0,6);results.innerHTML=found.length?found.map(p=>`<button type="button" class="grim-search-result" data-q="${String(p.name).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"><span><b>${p.name}</b><small>${p.type} · ${p.color}</small></span><strong>${M(p.price)}</strong></button>`).join(''):'<p class="empty-note">No GRIM pieces matched that search.</p>';results.querySelectorAll('.grim-search-result').forEach(b=>b.onclick=()=>{const q=b.dataset.q||'';m.remove();quickSearch(q);document.getElementById('products')?.scrollIntoView({behavior:'smooth',block:'start'})})};
+  input.oninput=show;m.querySelector('.grim-search-close').onclick=()=>m.remove();m.onclick=e=>{if(e.target===m)m.remove()};show();setTimeout(()=>input.focus(),50);
+}
+function quickSearch(q){let s=E('search');if(s){s.value=q;render();s.scrollIntoView({behavior:'smooth',block:'center'})}}
+function clearFilters(){if(E('search'))E('search').value='';if(E('category'))E('category').value='all';if(E('color'))E('color').value='all';if(E('sort'))E('sort').value='featured';render()}
+function openHelp(kind='general'){let map={order:'ORDER SUPPORT',size:'SIZE HELP',delivery:'DELIVERY SUPPORT',general:'CONTACT GRIM'};if(E('helpTitle'))E('helpTitle').textContent=map[kind]||map.general;if(E('helpTopic'))E('helpTopic').value=kind==='order'?'Order support':kind==='size'?'Size help':kind==='delivery'?'Delivery':'Other';E('helpModal')?.classList.add('open')}
+function closeHelp(){E('helpModal')?.classList.remove('open')}
+if(E('helpForm'))E('helpForm').onsubmit=async e=>{e.preventDefault();let r=await fetch('/api/support',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:E('helpTopic').value,name:E('hName').value,email:E('hEmail').value,order:E('hOrder').value,message:E('hMessage').value})}),j=await r.json();E('hMsg').textContent=r.ok?`MESSAGE RECEIVED — SUPPORT #${j.ticketId}`:(j.error||'Please try again.');if(r.ok)E('helpForm').reset()};
+if(E('newsForm'))E('newsForm').onsubmit=async e=>{e.preventDefault();let r=await fetch('/api/newsletter',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:E('newsEmail').value})}),j=await r.json();E('newsMsg').textContent=r.ok?'WELCOME TO THE HOUSE.':(j.error||'Please try again.');if(r.ok)E('newsForm').reset()};
+
+function scrollToShop(){document.querySelector('.shop')?.scrollIntoView({behavior:'smooth',block:'start'})}
+ // ===== GRIM CHECKOUT V2 =====
+function buildGrimCheckout(){
+  const box=document.querySelector('#checkout .checkout-box');
+  if(!box)return;
+
+  box.innerHTML=`
+    <button class="x" onclick="closeCheckout()">×</button>
+    <span class="eyebrow">SECURE CHECKOUT</span>
+    <h2>CHECKOUT</h2>
+
+    <div style="display:flex;gap:8px;margin:15px 0 25px;font-size:12px">
+      <b>1 BAG</b> → <b>2 DELIVERY</b> → <b>3 PAYMENT</b>
+    </div>
+
+    <form id="grimCheckoutForm">
+
+      <h3>CONTACT</h3>
+      <input id="coEmail" type="email" required placeholder="Email address">
+      <input id="coPhone" type="tel" required placeholder="Phone number">
+
+      <h3>DELIVERY ADDRESS</h3>
+
+      <select id="coCountry" required>
+        <option value="NG">Nigeria</option>
+        <option value="US">United States</option>
+        <option value="GB">United Kingdom</option>
+        <option value="CA">Canada</option>
+        <option value="GH">Ghana</option>
+        <option value="ZA">South Africa</option>
+        <option value="KE">Kenya</option>
+        <option value="AE">United Arab Emirates</option>
+        <option value="AU">Australia</option>
+        <option value="DE">Germany</option>
+        <option value="FR">France</option>
+        <option value="IT">Italy</option>
+        <option value="ES">Spain</option>
+        <option value="NL">Netherlands</option>
+        <option value="JP">Japan</option>
+      </select>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <input id="coFirst" required placeholder="First name">
+        <input id="coLast" required placeholder="Last name">
+      </div>
+
+      <input id="coAddress" required placeholder="Street address">
+      <div id="addressSuggestions"></div>
+      <input id="coApartment" placeholder="Apartment, suite, etc. (optional)">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <input id="coCity" required placeholder="City">
+        <input id="coState" required placeholder="State / Province">
+      </div>
+
+      <input id="coPostal" placeholder="Postal / ZIP code">
+      <textarea id="coInstructions"
+        placeholder="Delivery instructions (optional)"></textarea>
+
+      <h3>BILLING ADDRESS</h3>
+      <div id="savedBillingBox" style="margin:0 0 10px"></div>
+      <label class="check" style="align-items:center;margin:10px 0"><input id="coBillingSame" type="checkbox" checked> <span>Billing address is the same as delivery</span></label>
+      <div id="coBillingFields" style="display:none">
+        <input id="coBillingAddress" placeholder="Billing street address">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <input id="coBillingCity" placeholder="Billing city">
+          <input id="coBillingState" placeholder="Billing state / province">
+        </div>
+        <input id="coBillingPostal" placeholder="Billing postal / ZIP code">
+      </div>
+      <label class="check" style="align-items:center;margin:10px 0 18px"><input id="coSaveBilling" type="checkbox"> <span>Save billing address to my GRIM account</span></label>
+
+      <h3>DELIVERY METHOD</h3>
+
+      <label style="display:block;border:1px solid #bbb;padding:16px;margin:10px 0">
+        <input type="radio" name="delivery" value="standard" checked>
+        <b> Standard Delivery</b><br>
+        <small>Delivery cost will be calculated for your destination.</small>
+      </label>
+
+      <button class="dark full" type="submit">
+        CONTINUE TO PAYMENT
+      </button>
+
+      <p id="checkoutMessage"></p>
+    </form>
+
+    <div id="paymentStep" style="display:none">
+      <h3>PAYMENT</h3>
+      <p class="muted">Choose how you would like to pay.</p>
+
+      <div id="savedCardsBox" style="margin:0 0 12px"></div>
+      <label class="check" style="align-items:center;margin:10px 0 14px"><input id="coSaveCard" type="checkbox"> <span>Save this card securely for future GRIM purchases</span></label>
+
+      <button class="dark full" id="payCard" type="button">
+        💳 PAY WITH CARD
+      </button>
+
+      <button class="dark full" id="payWallet" type="button" style="margin-top:12px">
+        ◈ PAY WITH GRIM WALLET
+      </button>
+
+      <button class="dark full" id="payTransfer"
+        type="button" style="margin-top:12px">
+        🏦 PAY BY BANK TRANSFER
+      </button>
+
+      <button type="button" id="backDelivery"
+        style="margin-top:18px">
+        ← BACK TO DELIVERY
+      </button>
+
+      <p id="paymentMessage"></p>
+    </div>
+  `;
+
+
+const addressInput = E('coAddress');
+const suggestions = E('addressSuggestions');
+let addressTimer;
+
+addressInput.addEventListener('input', function () {
+  clearTimeout(addressTimer);
+
+  const query = this.value.trim();
+  if (query.length < 3) {
+    suggestions.innerHTML = '';
+    suggestions.style.display = 'none';
+    return;
+  }
+
+  addressTimer = setTimeout(async () => {
+    try {
+      const countryCode = E('coCountry')?.value || '';
+
+      const url =
+        'https://photon.komoot.io/api/?q=' +
+        encodeURIComponent(query) +
+        '&limit=5' +
+        (countryCode ? '&countrycode=' + encodeURIComponent(countryCode) : '');
+
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Address search failed');
+
+      const data = await response.json();
+
+      suggestions.innerHTML = '';
+
+      if (!data.features || !data.features.length) {
+        suggestions.style.display = 'none';
+        return;
+      }
+
+      data.features.forEach(feature => {
+        const p = feature.properties || {};
+
+        const street = [p.housenumber, p.street || p.name]
+          .filter(Boolean)
+          .join(' ');
+
+        const city =
+    p.city ||
+    p.town ||
+    p.village ||
+    p.locality ||
+    p.municipality ||
+    p.suburb ||
+    '';
+
+        const state = p.state || '';
+        const postcode = p.postcode || '';
+
+        const label = [
+          street,
+          city,
+          state,
+          postcode,
+          p.country
+        ].filter(Boolean).join(', ');
+
+        const option = document.createElement('div');
+        option.textContent = label;
+
+        option.style.padding = '14px';
+        option.style.cursor = 'pointer';
+        option.style.borderBottom = '1px solid #ddd';
+        option.style.background = '#fff';
+
+  option.addEventListener('click', async () => {
+  addressInput.value = street || p.name || query;
+
+  let finalCity = city;
+  let finalState = state;
+  let finalPostcode = postcode;
+
+  // If Photon search didn't return complete address details,
+  // use the selected result's coordinates to reverse-geocode it.
+  try {
+    const coords = feature.geometry?.coordinates;
+
+    if (coords && coords.length >= 2) {
+      const lon = coords[0];
+      const lat = coords[1];
+
+      const reverseURL =
+        'https://photon.komoot.io/reverse?lon=' +
+        encodeURIComponent(lon) +
+        '&lat=' +
+        encodeURIComponent(lat);
+
+      const reverseResponse = await fetch(reverseURL);
+
+      if (reverseResponse.ok) {
+        const reverseData = await reverseResponse.json();
+        const rp = reverseData.features?.[0]?.properties || {};
+
+        finalCity =
+          finalCity ||
+          rp.city ||
+          rp.town ||
+          rp.village ||
+          rp.locality ||
+          rp.district ||
+          '';
+
+        finalState =
+          finalState ||
+          rp.state ||
+          '';
+
+        finalPostcode =
+          finalPostcode ||
+          rp.postcode ||
+          '';
+      }
+    }
+  } catch (error) {
+    console.error('GRIM reverse address lookup failed:', error);
+  }
+// GRIM ZIP fallback - fills city/state when Photon leaves them blank
+if (!finalCity && finalPostcode) {
+  try {
+    const selectedCountry = E('coCountry')?.value || '';
+
+    if (selectedCountry === 'US') {
+      const zipResponse = await fetch(
+        'https://api.zippopotam.us/us/' +
+        encodeURIComponent(finalPostcode)
+      );
+
+      if (zipResponse.ok) {
+        const zipData = await zipResponse.json();
+        const place = zipData.places?.[0];
+
+        if (place) {
+          finalCity = place['place name'] || finalCity;
+          finalState = place['state'] || finalState;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('GRIM ZIP lookup failed:', error);
+  }
+}
+  if (E('coCity')) E('coCity').value = finalCity;
+  if (E('coState')) E('coState').value = finalState;
+  if (E('coPostal')) E('coPostal').value = finalPostcode;
+
+  suggestions.innerHTML = '';
+  suggestions.style.display = 'none';
+});
+        suggestions.appendChild(option);
+      });
+
+      suggestions.style.display = 'block';
+
+    } catch (error) {
+      console.error('GRIM address search:', error);
+      suggestions.style.display = 'none';
+    }
+  }, 400);
+});  
+  const country=E('coCountry');
+  if(market?.country && [...country.options].some(o=>o.value===market.country)){
+    country.value=market.country;
+  }
+
+  function paymentAvailability(){
+    const transfer=E('payTransfer');
+    if(transfer){
+      transfer.style.display=
+        country.value==='NG' ? 'block' : 'none';
+    }
+  }
+
+  paymentAvailability();
+  country.addEventListener('change',paymentAvailability);
+  const billingSame=E('coBillingSame'),billingFields=E('coBillingFields');
+  if(billingSame&&billingFields) billingSame.addEventListener('change',()=>{billingFields.style.display=billingSame.checked?'none':'block'});
+  let savedBilling=null;
+  fetch('/api/settings',{credentials:'include',cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{
+    const b=j?.shopping?.checkoutPreferences?.savedBillingAddress;if(!b)return;savedBilling=b;
+    const box=E('savedBillingBox');if(box)box.innerHTML=`<div style="border:1px solid #bbb;padding:11px;margin:6px 0;font-size:11px"><b>SAVED BILLING ADDRESS</b><br>${[b.address,b.city,b.state,b.postal,b.country].filter(Boolean).join(', ')}<div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap"><button type="button" id="useSavedBilling">USE FOR BILLING</button><button type="button" id="useSavedDelivery">USE FOR DELIVERY</button></div></div>`;
+    const fillBilling=()=>{
+      // A saved billing address is also a reusable customer address.
+      // Put it into the main address form at the TOP, which is the customer's expected flow.
+      const set=(id,v)=>{const el=E(id);if(el){el.value=v||'';el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))}};
+      set('coAddress',b.address);set('coCity',b.city);set('coState',b.state);set('coPostal',b.postal);
+      const countryEl=E('coCountry');
+      if(countryEl&&b.country&&[...countryEl.options].some(o=>o.value===b.country)){countryEl.value=b.country;countryEl.dispatchEvent(new Event('change',{bubbles:true}))}
+      const same=E('coBillingSame'),fields=E('coBillingFields');
+      if(same){same.checked=true;same.setAttribute('checked','checked');same.dispatchEvent(new Event('change',{bubbles:true}))}
+      if(fields){fields.hidden=true;fields.style.display='none'}
+      paymentAvailability();
+      const card=E('savedBillingBox');if(card)card.innerHTML='<div style="border:1px solid #bbb;padding:11px;margin:6px 0;font-size:11px"><b>SAVED ADDRESS APPLIED ✓</b><br><span style="opacity:.75">Your saved address is filled into the main address form above.</span></div>';
+      E('coAddress')?.scrollIntoView({behavior:'smooth',block:'center'});
+    };
+    E('useSavedBilling')&&(E('useSavedBilling').onclick=fillBilling);E('useSavedDelivery')&&(E('useSavedDelivery').onclick=()=>{E('coAddress').value=b.address||'';E('coCity').value=b.city||'';E('coState').value=b.state||'';E('coPostal').value=b.postal||'';if(b.country&&[...E('coCountry').options].some(o=>o.value===b.country))E('coCountry').value=b.country;paymentAvailability()});
+  }).catch(()=>{});
+
+  E('grimCheckoutForm').onsubmit=e=>{
+    e.preventDefault();
+
+    E('grimCheckoutForm').style.display='none';
+    E('paymentStep').style.display='block';
+
+    paymentAvailability();
+
+    box.scrollTop=0;
+  };
+
+  E('backDelivery').onclick=()=>{
+    E('paymentStep').style.display='none';
+    E('grimCheckoutForm').style.display='block';
+  };
+
+  E('payCard').onclick=()=>{
+    E('paymentMessage').textContent=
+      'Preparing secure card payment…';
+    startGrimPayment('card');
+  };
+
+  const savedBox=E('savedCardsBox');
+  fetch('/api/payments/methods',{credentials:'include',cache:'no-store'}).then(async r=>{if(!r.ok)return null;return r.json()}).then(j=>{
+    const methods=j?.methods||[]; if(!savedBox)return;
+    savedBox.innerHTML=methods.length?'<div style="font-size:10px;letter-spacing:1.5px;margin-bottom:7px"><b>SAVED CARDS</b> · choose one to pay without re-entering card details</div>'+methods.map((m,i)=>`<label style="display:flex;align-items:center;gap:10px;border:1px solid #bbb;padding:11px;margin:6px 0;font-size:11px"><input type="radio" name="grimSavedCard" value="${m.id}" ${i===0?'checked':''}><span style="flex:1"><b>${String(m.brand||'CARD').toUpperCase()} •••• ${m.last4||''}</b>${m.expMonth&&m.expYear?` · ${m.expMonth}/${m.expYear}`:''}</span><button type="button" class="removeSavedCard" data-id="${m.id}">REMOVE</button></label>`).join('')+'<button class="dark full" id="paySavedCard" type="button" style="margin:10px 0">PAY WITH SELECTED SAVED CARD</button>':'';
+    savedBox.querySelectorAll('.removeSavedCard').forEach(b=>b.onclick=async()=>{if(!confirm('Remove this saved card from GRIM?'))return;await fetch('/api/payments/methods/'+encodeURIComponent(b.dataset.id),{method:'DELETE',credentials:'include'});b.closest('label')?.remove()});
+    E('paySavedCard')&&(E('paySavedCard').onclick=()=>startGrimSavedCardPayment());
+  }).catch(()=>{});
+
+  E('payWallet').onclick=async()=>{
+    const msg=E('paymentMessage'); const btn=E('payWallet'); btn.disabled=true; msg.textContent='Checking GRIM Wallet…';
+    try{
+      const payload={name:`${E('coFirst').value.trim()} ${E('coLast').value.trim()}`.trim(),phone:E('coPhone').value.trim(),address:[E('coAddress').value.trim(),E('coApartment').value.trim(),E('coCity').value.trim(),E('coState').value.trim(),E('coPostal').value.trim()].filter(Boolean).join(', '),country:E('coCountry').value||'NG',currency:'NGN',checkoutKey:(sessionStorage.getItem('grimWalletCheckoutKey')||(()=>{const key='web_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,12);sessionStorage.setItem('grimWalletCheckoutKey',key);return key})()),items:cart.map(i=>({id:Number(i.id),qty:Math.max(1,Number(i.qty||1)),size:String(i.size||'M')}))};
+      const r=await fetch('/api/v8/wallet/checkout',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const j=await r.json().catch(()=>({})); if(!r.ok)throw new Error(j.error||'Wallet checkout failed.');
+      msg.textContent=`Wallet payment complete. Order #${j.orderId}.`; sessionStorage.removeItem('grimWalletCheckoutKey'); cart=[]; save(); draw();
+    }catch(e){msg.textContent=e.message||'Wallet checkout failed.';btn.disabled=false}
+  };
+
+  E('payTransfer').onclick=()=>{
+    E('paymentMessage').textContent=
+      'Preparing secure bank transfer…';
+    startGrimPayment('bank_transfer');
+  };
+}
+
+async function startGrimSavedCardPayment(){
+  const selected=document.querySelector('input[name="grimSavedCard"]:checked'),msg=E('paymentMessage'),btn=E('paySavedCard');if(!selected)return msg.textContent='Choose a saved card first.';
+  btn.disabled=true;msg.textContent='Charging selected saved card securely…';
+  try{
+    const items=cart.map(i=>({id:Number(i.id),qty:Math.max(1,Number(i.qty||1)),size:String(i.size||'M')}));
+    const products=await fetch('/api/products',{credentials:'include',cache:'no-store'}).then(r=>r.json()),map=new Map(products.map(p=>[Number(p.id),p]));let expectedAmount=0;for(const i of items){const p=map.get(i.id);if(!p)throw new Error('An item in your bag is unavailable.');expectedAmount+=Number(p.price)*i.qty*100}
+    const delivery={country:E('coCountry').value||'NG',address:E('coAddress').value.trim(),apartment:E('coApartment').value.trim(),city:E('coCity').value.trim(),state:E('coState').value.trim(),postal:E('coPostal').value.trim(),instructions:E('coInstructions').value.trim()};
+    const billing=E('coBillingSame')?.checked!==false?{...delivery}:{country:delivery.country,address:E('coBillingAddress').value.trim(),city:E('coBillingCity').value.trim(),state:E('coBillingState').value.trim(),postal:E('coBillingPostal').value.trim()};
+    const payload={paymentMethodId:selected.value,expectedAmount,customer:{email:E('coEmail').value.trim(),firstName:E('coFirst').value.trim(),lastName:E('coLast').value.trim(),phone:E('coPhone').value.trim()},delivery,billing,items};
+    const r=await fetch('/api/payments/charge-saved',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}),j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Saved card payment failed.');
+    if(j.authorizationUrl){msg.textContent='Additional card authentication is required…';location.assign(j.authorizationUrl);return}
+    if(j.paid){msg.textContent=`Payment complete. Order #${j.orderId||j.reference}.`;cart=[];save();draw();return}
+    throw new Error('Saved card payment could not be confirmed.');
+  }catch(e){msg.textContent=e.message||'Saved card payment failed.';btn.disabled=false}
+}
+
+let grimPaymentStarting = false;
+async function grimVerifyPayment(reference) {
+  const msg=E('paymentMessage');
+  if(msg)msg.textContent='Checking payment status…';
+  const response=await fetch('/api/payments/verify',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({reference})});
+  const result=await response.json().catch(()=>({}));
+  if(result.paystackPaid===true && result.orderStored===false){
+    if(msg)msg.textContent='Paystack confirmed payment, but GRIM could not save the order. Do not pay again. Reference: '+reference;
+    return;
+  }
+  if(response.ok && result.verified===true && result.orderStored===true){
+    if(msg)msg.textContent='Payment complete ✓ Reference: '+reference;
+    localStorage.removeItem('grimPendingPayment');cart=[];save();draw();return;
+  }
+  if(msg)msg.textContent=(result.paystackPaid===true?'Paystack received payment but verification needs review. Do not pay again. Reference: '+reference:(result.error||'Payment not confirmed. Do not pay again until status is checked. Reference: '+reference));
+}
+async function startGrimPayment(method) {
+  if(grimPaymentStarting)return;
+  const msg=E('paymentMessage'),btn=E(method==='card'?'payCard':'payTransfer');
+  const pending=localStorage.getItem('grimPendingPayment');
+  if(pending){try{await grimVerifyPayment(pending);}catch(e){msg.textContent='Unable to check previous payment. Do not pay again. Reference: '+pending;}return;}
+  grimPaymentStarting=true;if(btn)btn.disabled=true;
+  try {
+    msg.textContent='Preparing secure payment…';
+    const items=cart.map(i=>({id:Number(i.id),qty:Number(i.qty),size:String(i.size||'M')}));
+    const responseProducts=await fetch('/api/products',{credentials:'include',cache:'no-store'});
+    if(!responseProducts.ok)throw new Error('Unable to refresh product prices.');
+    const products=await responseProducts.json(),byId=new Map(products.map(p=>[Number(p.id),p]));
+    let expectedAmount=0;
+    for(const item of items){const product=byId.get(item.id);if(!product)throw new Error('An item is no longer available.');expectedAmount+=Number(product.price)*item.qty*100;}
+    const delivery={country:E('coCountry').value,address:E('coAddress').value.trim(),apartment:E('coApartment').value.trim(),city:E('coCity').value.trim(),state:E('coState').value.trim(),postal:E('coPostal').value.trim(),instructions:E('coInstructions').value.trim()};
+    const billing=E('coBillingSame')?.checked!==false?{...delivery}:{country:delivery.country,address:E('coBillingAddress').value.trim(),city:E('coBillingCity').value.trim(),state:E('coBillingState').value.trim(),postal:E('coBillingPostal').value.trim()};
+    const payload={method,expectedAmount,items,delivery,billing,saveCard:E('coSaveCard')?.checked===true,customer:{email:E('coEmail').value.trim(),firstName:E('coFirst').value.trim(),lastName:E('coLast').value.trim(),phone:E('coPhone').value.trim()}};
+    const response=await fetch('/api/payments/initialize',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok||!result.authorizationUrl||!result.reference)throw new Error(result.error||'Could not initialize payment.');
+    localStorage.setItem('grimPendingPayment',result.reference);
+    msg.textContent='Opening Paystack. You will be charged in '+result.currency+'…';
+    window.location.assign(result.authorizationUrl);
+  }catch(error){msg.textContent=error.message||'Payment could not start.';}
+  finally{grimPaymentStarting=false;if(btn)btn.disabled=false;}
+}
+async function grimCheckReturnedPayment(){
+  const params=new URLSearchParams(location.search),pending=localStorage.getItem('grimPendingPayment');
+  if(params.get('grim-payment')!=='return'&&!params.has('reference')&&!params.has('trxref'))return;
+  const ref=params.get('reference')||params.get('trxref')||pending;
+  if(!ref||!/^GRIM-[a-f0-9]{32}$/.test(ref))return;
+  if(pending&&pending!==ref)return;
+  E('checkout')?.classList.add('open');
+  if(E('grimCheckoutForm'))E('grimCheckoutForm').style.display='none';
+  if(E('paymentStep'))E('paymentStep').style.display='block';
+  try{await grimVerifyPayment(ref);}catch(e){if(E('paymentMessage'))E('paymentMessage').textContent='Unable to check payment. Do not pay again. Reference: '+ref;}
+  history.replaceState(null,'',location.pathname);
+}
+
+buildGrimCheckout();
+grimCheckReturnedPayment();
+// An existing reference must be reconciled, never replaced by a new charge.
+window.GRIM_retryPendingPayment=async()=>{const reference=localStorage.getItem('grimPendingPayment');if(!reference)return;try{await grimVerifyPayment(reference);}catch(e){const msg=E('paymentMessage');if(msg)msg.textContent='Could not check payment. Do not pay again. Reference: '+reference;}};
+
+(function(){
+ const labels={NG:{state:'State',postal:'Postal code',phone:'Phone number'},US:{state:'State',postal:'ZIP code',phone:'Phone number'},GB:{state:'County / Region',postal:'Postcode',phone:'Phone number'},CA:{state:'Province',postal:'Postal code',phone:'Phone number'},AU:{state:'State / Territory',postal:'Postcode',phone:'Phone number'},DE:{state:'State / Region',postal:'Postal code',phone:'Phone number'},FR:{state:'Region',postal:'Postal code',phone:'Phone number'},IT:{state:'Province / Region',postal:'Postal code',phone:'Phone number'},ES:{state:'Province / Region',postal:'Postal code',phone:'Phone number'},NL:{state:'Province',postal:'Postal code',phone:'Phone number'},GH:{state:'Region',postal:'Postal code',phone:'Phone number'},ZA:{state:'Province',postal:'Postal code',phone:'Phone number'},KE:{state:'County',postal:'Postal code',phone:'Phone number'},AE:{state:'Emirate',postal:'Postal code (optional)',phone:'Phone number'},JP:{state:'Prefecture',postal:'Postal code',phone:'Phone number'}};
+ function syncMarketCountry(code,manual){if(!MARKETS[code])return;const m=MARKETS[code];market={country:code,currency:m.currency,manual:manual!==false};localStorage.setItem('grimMarket',JSON.stringify(market));updateMarketUI();render();draw();const u=E('marketCurrency');if(u){u.innerHTML=`<option value="${m.currency}">${m.currency}</option>`;u.value=m.currency}}
+ function checkoutLabels(){const c=E('coCountry');if(!c)return;const x=labels[c.value]||labels.NG;if(E('coState'))E('coState').placeholder=x.state;if(E('coPostal'))E('coPostal').placeholder=x.postal;if(E('coPhone'))E('coPhone').placeholder=x.phone;}
+ document.addEventListener('change',e=>{if(e.target?.id==='marketCountry'){const m=MARKETS[e.target.value]||MARKETS.NG,u=E('marketCurrency');if(u){u.innerHTML=`<option value="${m.currency}">${m.currency}</option>`;u.value=m.currency}}if(e.target?.id==='coCountry'){syncMarketCountry(e.target.value,true);checkoutLabels();}});
+ document.addEventListener('DOMContentLoaded',checkoutLabels);
+ window.GRIM_syncCheckoutMarket=checkoutLabels;
+})();
