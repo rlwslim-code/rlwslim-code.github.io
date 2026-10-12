@@ -9,7 +9,7 @@
     pending = null,
     busy = false,
     addresses = [], mode = "test", walletEnabled = true,
-    acceptingOrders = true, shippingRequired = false, shippingToken = null, shippingOffers = null, selectedManualQuote = null;
+    acceptingOrders = true, shippingRequired = false, shippingToken = null, shippingOffers = null, selectedManualQuote = null, bankTransferEnabled = false;
   const fmt = (n) =>
     new Intl.NumberFormat("en-NG", {
       style: "currency",
@@ -226,7 +226,7 @@
           selectedManualQuote = q;
           list.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === button)));
           say('Manual quotation selected. Review its details on the secure quotation page before paying.');
-          manualPayLink.href = '/delivery-request.html';
+          updateManualPayLink();
           if (typeof currentStep !== 'undefined' && currentStep === 3) manualPayLink.hidden = false;
         });
         button.setAttribute('aria-pressed','false');
@@ -234,6 +234,12 @@
       }
     } catch(e) { if (seq === manualQuoteSequence) status.textContent = 'Quotation lookup unavailable: ' + e.message + '. Manual entry remains available.'; }
   }
+  function updateManualPayLink(){
+    if(!selectedManualQuote)return;
+    const method = fields.method.value;
+    manualPayLink.href='/delivery-request.html?quoteId='+encodeURIComponent(selectedManualQuote.id)+'&method='+encodeURIComponent(method);
+  }
+  for (const item of form.querySelectorAll('input[name="method"]'))item.addEventListener('change',updateManualPayLink);
   // Four visible stages, one existing checkout form and one trusted payment path.
   document.body.dataset.checkoutWizardVersion = "20261011-c";
   const stages = Array.from(form.children).filter((node) => node.tagName === "SECTION");
@@ -254,6 +260,13 @@
     $("stepNext").textContent = `CONTINUE TO ${stepNames[currentStep + 1]?.toUpperCase() || "PAYMENT"}`;
     $("payButton").hidden = currentStep !== stages.length - 1 || !!selectedManualQuote;
     manualPayLink.hidden = currentStep !== stages.length - 1 || !selectedManualQuote;
+    // Ordinary courier checkout cannot use a bank-transfer method until its
+    // dedicated flow is implemented. The manual quotation can, when enabled.
+    $("transferMethod").disabled = !selectedManualQuote || !bankTransferEnabled;
+    $("transferOption").classList.toggle('unavailable-transfer', $("transferMethod").disabled);
+    if($("transferMethod").disabled && $("transferMethod").checked)
+      fields.method.value='card';
+    if(selectedManualQuote) updateManualPayLink();
     // Do not clear the form; customer values persist while switching stages.
     $("checkoutStepStatus").scrollIntoView({block: "start", behavior: "instant"});
   }
@@ -700,6 +713,7 @@
       }
       mode = c.mode === "live" ? "live" : "test";
       walletEnabled = c.walletEnabled !== false;
+      bankTransferEnabled = c.bankTransferEnabled === true;
       shippingRequired = c.shippingRequired === true;
       acceptingOrders = c.acceptingOrders !== false;
       if (shippingRequired) shippingControls();
@@ -721,9 +735,10 @@
       $("paymentNote").textContent = mode === "test" ?
         "All totals settle in NGN. This Preview uses test wallet balances." :
         "All totals settle in NGN. Wallet checkout deducts only the displayed order total.";
-      // Bank transfer must remain disabled until server-controlled channel selection,
-      // reference verification and idempotent order recording are implemented.
-      $("transferMethod").disabled = true;
+      // Transfer is available only for controlled, confirmed quotations once
+      // the server flag has been enabled after full integration tests.
+      $("transferMethod").disabled = !selectedManualQuote || !bankTransferEnabled;
+      $("transferOption").classList.toggle('unavailable-transfer', $("transferMethod").disabled);
       load();
     })
     .catch((e) => say(e.message, true));

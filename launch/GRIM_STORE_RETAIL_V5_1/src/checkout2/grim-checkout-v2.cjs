@@ -110,7 +110,13 @@ function createEngine({
     return initiateCard(row);
   }
   async function initiateCard(row, callbackPath = "/checkout2.html") {
-    if (row.status === "paid" || row.authorization_url) return view(row);
+    if (row.method !== 'card') throw new CheckoutError('METHOD_MISMATCH','This checkout cannot be paid through Paystack.',409);
+    if (row.status === "paid") return view(row);
+    // Do not resume a Paystack authorization when the approved delivery quote expired;
+    // any already-settled transaction must still be reconciled independently.
+    if (row.quote?.shippingExpiresAt && Date.now() >= Number(row.quote.shippingExpiresAt))
+      throw new CheckoutError('QUOTE_EXPIRED','The approved delivery quotation has expired. Contact GRIM before paying.',409);
+    if (row.authorization_url) return view(row);
     if (["initializing", "initialization_unknown", "reconciliation_required"].includes(row.status)) return { ...view(row), message:"Existing payment attempt needs verification. Do not pay twice." };
     if (!(await store.claim(row.reference)))
       return view(await store.get(row.reference));
@@ -121,7 +127,8 @@ function createEngine({
         amount: row.quote.totalKobo,
         currency: "NGN",
         callback_url: `${callbackBase}${callbackPath}?reference=${encodeURIComponent(row.reference)}`,
-        channels: ["card"],
+        // DB-stored method preference, not a browser-controlled amount/channel.
+        channels: [row.quote?.paystackChannel === 'bank_transfer' ? 'bank_transfer' : 'card'],
         metadata: {
           grim_checkout2: true,
           cancel_action: `${callbackBase}${callbackPath}?reference=${encodeURIComponent(row.reference)}`,
@@ -167,6 +174,12 @@ function createEngine({
       expected: { reference, email: row.email, totalKobo: row.quote.totalKobo },
       provider: payment, mode,
     });
+    // Require the channel recorded when this confirmed quote was first claimed.
+    // Older card checkouts had no stored channel and retain their existing rules.
+    if (payment.status === 'success' && row.quote?.paystackChannel &&
+        payment.channel !== row.quote.paystackChannel)
+      throw new CheckoutError('PAYMENT_CHANNEL_MISMATCH',
+        'Paystack payment channel differs from the selected method. Manual reconciliation required.',409);
     if (payment.status !== "success")
       return {
         ...view(row),
@@ -187,12 +200,28 @@ function createEngine({
       };
     }
   }
-  async function startManualQuote({quoteId,customerId,email}) {
-    if (!acceptNewOrders) throw new CheckoutError("ORDERING_PAUSED","Payments are paused.",503);
-    if (mode !== "live" || !store.startManualQuote) throw new CheckoutError("FEATURE_DISABLED","Confirmed quote payment unavailable.",503);
-    const row = await store.startManualQuote({quoteId,customerId,email,reference:`GRIM2-${crypto.randomUUID()}`});
-    if (!row || row.customer_id !== String(customerId) || row.method !== "card") throw new CheckoutError("PAYMENT_MISMATCH","Payment could not be confirmed.",503);
-    return initiateCard(row,"/delivery-request.html");
+  async function startManualQuote({quoteId,customerId,email,method='card',bankTransferEnabled=false,walletCheckoutEnabled=false}) {
+    if (!acceptNewOrders) throw new CheckoutError('ORDERING_PAUSED','Payments are paused.',503);
+    if (mode !== 'live' || !store.startManualQuote) throw new CheckoutError('FEATURE_DISABLED','Confirmed quote payment unavailable.',503);
+    if (!['card','bank_transfer','wallet'].includes(method)) throw new CheckoutError('INVALID_METHOD','Choose a valid payment method.',400);
+    if (method === 'wallet' && (!walletEnabled || !walletCheckoutEnabled)) throw new CheckoutError('WALLET_DISABLED','GRIM Wallet checkout has not been enabled.',503);
+    if (method === 'bank_transfer' && !bankTransferEnabled) throw new CheckoutError('TRANSFER_DISABLED','Paystack bank transfer checkout has not been enabled.',503);
+    const row = await store.startManualQuote({quoteId,customerId,email,method,reference:`GRIM2-${crypto.randomUUID()}`});
+    if (!row || row.customer_id !== String(customerId)) throw new CheckoutError('PAYMENT_MISMATCH','Payment ownership could not be confirmed.',503);
+    const storedMethod = row.method === 'wallet' ? 'wallet' :
+      row.method === 'card' ? (row.quote?.paystackChannel === 'bank_transfer' ? 'bank_transfer' : 'card') : null;
+    if (storedMethod !== method) throw new CheckoutError('METHOD_LOCKED',
+      `This quotation already has a ${storedMethod || 'different'} payment attempt. Verify or recover it before changing payment methods.`,409);
+    if (row.status === 'paid') return view(row);
+    if (row.status === 'cancelled') throw new CheckoutError('CHECKOUT_CANCELLED','This payment reference was cancelled. Contact GRIM to request a new quotation.',409);
+    if (method === 'wallet') {
+      // Completing a wallet payment is an irreversible debit: the DB function
+      // checks expiry, locks the attempt and wallet, and commits a single receipt.
+      if (row.quote?.shippingExpiresAt && Date.now() >= Number(row.quote.shippingExpiresAt))
+        throw new CheckoutError('QUOTE_EXPIRED','The approved delivery quotation has expired.',409);
+      return wallet(row);
+    }
+    return initiateCard(row,'/delivery-request.html');
   }
   return {
     startManualQuote,
