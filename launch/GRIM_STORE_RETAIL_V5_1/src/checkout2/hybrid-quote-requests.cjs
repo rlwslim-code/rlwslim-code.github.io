@@ -28,12 +28,12 @@ function createService({db,catalog,now=()=>new Date(),uuid=randomUUID}){
   const references=[...new Set((data||[]).map(r=>r.checkout_reference).filter(Boolean))];
   let attempts=[];
   if(references.length){
-   const result=await db.from('grim2_attempts').select('reference,status,authorization_url,order_id').in('reference',references).eq('customer_id',String(customerId));
+   const result=await db.from('grim2_attempts').select('reference,status,authorization_url,order_id,method,quote').in('reference',references).eq('customer_id',String(customerId));
    if(result.error)throw fail('QUOTES_UNAVAILABLE','Could not load payment statuses.',503);
    attempts=result.data||[];
   }
   const statuses=new Map(attempts.map(a=>[a.reference,a]));
-  return (data||[]).map(r=>({...view(r),paymentStatus:statuses.get(r.checkout_reference)?.status||'not_started',authorizationUrl:statuses.get(r.checkout_reference)?.authorization_url||null,orderId:statuses.get(r.checkout_reference)?.order_id||null}));
+  return (data||[]).map(r=>({...view(r),paymentStatus:statuses.get(r.checkout_reference)?.status||'not_started',authorizationUrl:statuses.get(r.checkout_reference)?.authorization_url||null,orderId:statuses.get(r.checkout_reference)?.order_id||null,lockedMethod:statuses.get(r.checkout_reference)?.method==='wallet'?'wallet':(statuses.get(r.checkout_reference)?.quote?.paystackChannel==='bank_transfer'?'bank_transfer':(statuses.has(r.checkout_reference)?'card':null))}));
  }
  async function listAdmin(){
   const {data,error}=await table().select('id,status,subtotal_kobo,fee_kobo,total_kobo,expires_at,created_at,snapshot').order('created_at',{ascending:false}).limit(100);
