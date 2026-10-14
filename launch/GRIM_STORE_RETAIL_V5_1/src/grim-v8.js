@@ -1,5 +1,59 @@
-import { createRequire } from "node:module";
-const { verifyProvider } = createRequire(import.meta.url)("./checkout2/checkout-core.cjs");
+// Self-contained wallet payment verification. This module must load even if
+// optional Checkout 2.0 files are absent from a Vercel function bundle.
+const walletRefPattern = /^GRIM-WALLET-[a-f0-9]{32}$/i;
+
+function paystackSecret() {
+  const key = String(process.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET || "").trim();
+  if (!/^sk_(test|live)_[A-Za-z0-9]+$/.test(key)) {
+    const err = new Error("Paystack wallet funding is not configured.");
+    err.statusCode = 503;
+    throw err;
+  }
+  return key;
+}
+
+async function paystackRequest(path, key, payload) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(`https://api.paystack.co/transaction/${path}`, {
+      method: payload === undefined ? "GET" : "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json"
+      },
+      ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),
+      signal: controller.signal
+    });
+    const json = await response.json();
+    if (!response.ok || json?.status !== true || !json?.data) {
+      const err = new Error("Paystack could not process this request. Please try again later.");
+      err.statusCode = 502;
+      throw err;
+    }
+    return json.data;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function verifyProvider({ expected, provider, mode }) {
+  const expectedEmail = String(expected?.email || "").trim().toLowerCase();
+  const actualEmail = String(provider?.customer?.email || "").trim().toLowerCase();
+  const valid = provider?.status === "success" &&
+    provider?.reference === expected?.reference &&
+    provider?.currency === "NGN" &&
+    Number.isSafeInteger(provider?.amount) &&
+    provider.amount === expected?.totalKobo &&
+    expectedEmail.length > 0 && actualEmail === expectedEmail &&
+    (mode === "live" ? provider?.domain === "live" : provider?.domain === "test");
+  if (!valid) {
+    const err = new Error("Payment verification did not match the expected wallet funding. Do not pay again; contact GRIM support.");
+    err.statusCode = 409;
+    throw err;
+  }
+}
+
 // GRIM V8 — wallet + persistent customer care API foundation.
 // Requires the V8 Supabase migration already installed.
 
@@ -267,7 +321,7 @@ app.post("/api/v8/wallet/fund/initialize", async (req, res) => {
       const key = paystackSecret();
       const { randomBytes } = await import("node:crypto");
       const reference = `GRIM-WALLET-${randomBytes(16).toString("hex")}`;
-      const origin = "https://rlwslim-code-github-io.vercel.app";
+      const origin = "https://grimwear.store";
 
       const tx = await paystackRequest("initialize", key, {
         email: customer.email,
@@ -348,6 +402,7 @@ app.post("/api/v8/wallet/fund/initialize", async (req, res) => {
         Number.isSafeInteger(amountMinor) &&
         amountMinor > 0 &&
         Number.isSafeInteger(tx.amount) &&
+        tx.amount === amountMinor &&
         tx.currency === "NGN" &&
         w.currency === "NGN";
 
