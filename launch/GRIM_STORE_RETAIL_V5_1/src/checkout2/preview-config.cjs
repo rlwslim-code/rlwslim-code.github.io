@@ -57,6 +57,12 @@ function previewConfig(env = process.env) {
     // Wallet deductions require an additional explicit gate, disabled by default.
     quoteWalletEnabled: production && walletEnabled && env.GRIM_CHECKOUT2_MANUAL_WALLET_ENABLED === 'true',
     quotePaymentsEnabled: production && env.GRIM_QUOTE_LIVE_PAYMENTS_ENABLED === "true",
+    // Merchant opt-in to accepting ALL valid, admin-approved quotations (not only one test UUID).
+    // This does not enable Wallet, transfer or unquoted courier payments.
+    quoteAllApprovedEnabled: production && env.GRIM_QUOTE_ALL_APPROVED_ENABLED === "true",
+    // Offer Card + Bank Transfer within the SAME Paystack hosted checkout.
+    // Requires Paystack transfer eligibility; independent from v2 transfer RPC.
+    quotePaystackDualChannelEnabled: production && env.GRIM_QUOTE_PAYSTACK_DUAL_CHANNEL_ENABLED === "true",
     // Test-only allowlist: refuse live quote charges unless the matching UUID is set.
     // Do not remove this gate until a real payment and order-recording regression has passed.
     quoteTestId: production && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(env.GRIM_CHECKOUT2_LIVE_TEST_QUOTE_ID || "").trim())
