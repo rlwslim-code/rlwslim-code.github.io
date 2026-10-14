@@ -33,6 +33,7 @@ function createRoutes({
         callbackBase: config.base,
         mode: config.mode || "test",
         walletEnabled: config.walletEnabled !== false,
+        quotePaystackDualChannelEnabled: config.quotePaystackDualChannelEnabled === true,
         acceptNewOrders: config.acceptNewOrders !== false,
         shippingKobo: config.shippingKobo || 0,
         shippingRequired: config.shippingRequired === true || config.mode === 'live',
@@ -188,12 +189,16 @@ function createRoutes({
   router.get('/shipping/hybrid/requests',wrap(async(req,res)=>{
     if(!quoteRequests)throw new CheckoutError('FEATURE_DISABLED','Manual quote requests are disabled.',503);
     const requests = await quoteRequests.listCustomer(req.checkoutCustomer.id);
-    // Never expose a global payment-enabled switch in a controlled live test.
-    // The button is offered only for the merchant-approved quotation UUID.
+    // Two independent roll-out modes: existing single-quote merchant test, or
+    // explicit public rollout for every admin-approved (QUOTE_READY) quotation.
+    // The database still validates customer ownership, amount, status and expiry.
+    const publicQuotePayments = config.quoteAllApprovedEnabled === true;
     const canPay = !!(engine && config.ready && config.mode === 'live' &&
-      config.quotePaymentsEnabled === true && config.acceptNewOrders === true && config.quoteTestId);
+      config.quotePaymentsEnabled === true && config.acceptNewOrders === true &&
+      (publicQuotePayments || config.quoteTestId));
     res.json({ requests: requests.map(q => {
-      const approved = !!config.quoteTestId && String(q.id).toLowerCase() === config.quoteTestId;
+      const approved = publicQuotePayments ||
+        (!!config.quoteTestId && String(q.id).toLowerCase() === config.quoteTestId);
       const validUntil = Date.parse(q.expiresAt || '');
       const expired = !Number.isFinite(validUntil) || validUntil <= Date.now();
       const amount = Number(q.totalKobo);
@@ -201,7 +206,7 @@ function createRoutes({
       if (!engine || !config.ready || config.mode !== 'live') paymentUnavailableReason = 'Live checkout is not ready.';
       else if (!config.quotePaymentsEnabled) paymentUnavailableReason = 'Quotation payments are disabled in Vercel.';
       else if (!config.acceptNewOrders) paymentUnavailableReason = 'New checkout orders are disabled in Vercel.';
-      else if (!config.quoteTestId) paymentUnavailableReason = 'The approved test quotation is not configured in Vercel.';
+      else if (!publicQuotePayments && !config.quoteTestId) paymentUnavailableReason = 'The approved test quotation is not configured in Vercel.';
       else if (!approved) paymentUnavailableReason = 'This quotation is not approved for the controlled live test.';
       else if (q.status !== 'QUOTE_READY') paymentUnavailableReason = 'The delivery quotation is not ready.';
       else if (q.paymentStatus === 'paid') paymentUnavailableReason = 'Payment has already been completed.';
@@ -219,7 +224,8 @@ function createRoutes({
     const quoteId=String(req.body?.quoteId||'');
     if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quoteId))
       throw new CheckoutError('INVALID_QUOTE_ID','Choose a valid confirmed quotation.',400);
-    if(!config.quoteTestId || quoteId.toLowerCase() !== config.quoteTestId)
+    if(config.quoteAllApprovedEnabled !== true &&
+       (!config.quoteTestId || quoteId.toLowerCase() !== config.quoteTestId))
       throw new CheckoutError('TEST_QUOTE_ONLY','Live payment is currently restricted to the approved merchant test quotation.',403);
     res.json(await engine.startManualQuote({quoteId,customerId:req.checkoutCustomer.id,email:req.checkoutCustomer.email}));
   }));

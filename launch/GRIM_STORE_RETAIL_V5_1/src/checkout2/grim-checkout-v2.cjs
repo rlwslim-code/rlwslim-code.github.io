@@ -22,6 +22,7 @@ function createEngine({
   shippingKobo = 0,
   mode = "test",
   walletEnabled = true,
+  quotePaystackDualChannelEnabled = false,
   shippingResolver = null,
   shippingRequired = false,
   acceptNewOrders = true,
@@ -121,7 +122,14 @@ function createEngine({
         amount: row.quote.totalKobo,
         currency: "NGN",
         callback_url: `${callbackBase}${callbackPath}?reference=${encodeURIComponent(row.reference)}`,
-        channels: ["card"],
+        // DB-stored method preference, not a browser-controlled amount/channel.
+        channels: row.quote?.paystackChannel === 'bank_transfer' ? ['bank_transfer'] :
+          // For legacy card-only SQL attempts on approved manual quotes, Paystack
+          // can safely offer the customer BOTH card and transfer on the SAME
+          // reference. Neither channel requires a new Supabase RPC or manual link.
+          // The chosen channel is verified by Paystack when reconciling the charge.
+          (quotePaystackDualChannelEnabled && row.quote?.manualQuoteId && !row.quote?.paystackChannel)
+            ? ['card', 'bank_transfer'] : ['card'],
         metadata: {
           grim_checkout2: true,
           cancel_action: `${callbackBase}${callbackPath}?reference=${encodeURIComponent(row.reference)}`,
