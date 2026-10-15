@@ -57,6 +57,11 @@ function previewConfig(env = process.env) {
     // Wallet deductions require an additional explicit gate, disabled by default.
     quoteWalletEnabled: production && walletEnabled && env.GRIM_CHECKOUT2_MANUAL_WALLET_ENABLED === 'true',
     quotePaymentsEnabled: production && env.GRIM_QUOTE_LIVE_PAYMENTS_ENABLED === "true",
+    // Dedicated merchant-only pilot: never grants permission to other signed-in customers.
+    quoteMerchantTestEnabled: production && env.GRIM_QUOTE_MERCHANT_TEST_ENABLED === 'true',
+    quoteMerchantTestEmail: production && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(env.GRIM_QUOTE_MERCHANT_TEST_EMAIL || '').trim())
+      ? String(env.GRIM_QUOTE_MERCHANT_TEST_EMAIL).trim().toLowerCase() : null,
+
     // Merchant opt-in to accepting ALL valid, admin-approved quotations (not only one test UUID).
     // This does not enable Wallet, transfer or unquoted courier payments.
     quoteAllApprovedEnabled: production && env.GRIM_QUOTE_ALL_APPROVED_ENABLED === "true",

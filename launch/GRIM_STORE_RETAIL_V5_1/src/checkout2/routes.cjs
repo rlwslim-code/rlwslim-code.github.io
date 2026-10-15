@@ -9,6 +9,7 @@ const {
 } = require("./checkout-core.cjs");
 const { createPaystack, createSupabaseStore } = require("./adapters.cjs");
 const { createShippingQuoteFlow } = require("./shipping-quote-flow.cjs");
+const { resolveLocale } = require("./country-context.cjs");
 function createRoutes({
   catalog,
   sessionUser,
@@ -45,7 +46,7 @@ function createRoutes({
     res.set("Cache-Control", "no-store");
     next();
   });
-  router.get("/config", async (_req, res) => {
+  router.get("/config", async (req, res) => {
     let dbReady = false;
     if (config.ready)
       try {
@@ -58,6 +59,8 @@ function createRoutes({
       walletEnabled: config.walletEnabled !== false,
       bankTransferEnabled: config.bankTransferEnabled === true,
       currency: "NGN",
+      countryContext: resolveLocale(req),
+      internationalCheckoutAvailable: false, // prices, ledger and Paystack integration currently NGN-only
       acceptingOrders: config.acceptNewOrders !== false,
       shippingRequired: config.shippingRequired === true || config.mode === 'live',
       shippingAvailable: !!shippingQuoteFlow,
@@ -197,11 +200,13 @@ function createRoutes({
     // explicit public rollout for every admin-approved (QUOTE_READY) quotation.
     // The database still validates customer ownership, amount, status and expiry.
     const publicQuotePayments = config.quoteAllApprovedEnabled === true;
+    const merchantTest = config.quoteMerchantTestEnabled === true && !!config.quoteMerchantTestEmail &&
+      String(req.checkoutCustomer.email || '').trim().toLowerCase() === config.quoteMerchantTestEmail;
     const canPay = !!(engine && config.ready && config.mode === 'live' &&
       config.quotePaymentsEnabled === true && config.acceptNewOrders === true &&
-      (publicQuotePayments || config.quoteTestId));
-    res.json({ requests: requests.map(q => {
-      const approved = publicQuotePayments ||
+      (publicQuotePayments || merchantTest || config.quoteTestId));
+    const visible = requests.map(q => {
+      const approved = publicQuotePayments || merchantTest ||
         (!!config.quoteTestId && String(q.id).toLowerCase() === config.quoteTestId);
       const validUntil = Date.parse(q.expiresAt || '');
       const expired = !Number.isFinite(validUntil) || validUntil <= Date.now();
@@ -210,7 +215,7 @@ function createRoutes({
       if (!engine || !config.ready || config.mode !== 'live') paymentUnavailableReason = 'Live checkout is not ready.';
       else if (!config.quotePaymentsEnabled) paymentUnavailableReason = 'Quotation payments are disabled in Vercel.';
       else if (!config.acceptNewOrders) paymentUnavailableReason = 'New checkout orders are disabled in Vercel.';
-      else if (!publicQuotePayments && !config.quoteTestId) paymentUnavailableReason = 'The approved test quotation is not configured in Vercel.';
+      else if (!publicQuotePayments && !merchantTest && !config.quoteTestId) paymentUnavailableReason = 'The approved test quotation is not configured in Vercel.';
       else if (!approved) paymentUnavailableReason = 'This quotation is not approved for the controlled live test.';
       else if (q.status !== 'QUOTE_READY') paymentUnavailableReason = 'The delivery quotation is not ready.';
       else if (q.paymentStatus === 'paid') paymentUnavailableReason = 'Payment has already been completed.';
@@ -224,7 +229,11 @@ function createRoutes({
           wallet: canPay && !paymentUnavailableReason && config.quoteWalletEnabled === true,
         },
       };
-    }), paymentEnabled: false });
+    });
+    // The list-level flag must reflect the server-authorized quotes. Previously
+    // always false, so older storefronts hid checkout even for approved pilots.
+    // Individual quote flags and POST /pay still enforce all authorization gates.
+    res.json({requests:visible, paymentEnabled:visible.some(q => q.paymentEnabled === true), countryContext:resolveLocale(req)});
   }));
   // Live payment for an administrator-confirmed manual quote only.
   // Separate feature flag: ordinary courier checkout does not unlock this route.
@@ -234,7 +243,9 @@ function createRoutes({
     const quoteId=String(req.body?.quoteId||'');
     if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(quoteId))
       throw new CheckoutError('INVALID_QUOTE_ID','Choose a valid confirmed quotation.',400);
-    if(config.quoteAllApprovedEnabled !== true &&
+    const merchantTest = config.quoteMerchantTestEnabled === true && !!config.quoteMerchantTestEmail &&
+      String(req.checkoutCustomer.email || '').trim().toLowerCase() === config.quoteMerchantTestEmail;
+    if(config.quoteAllApprovedEnabled !== true && !merchantTest &&
        (!config.quoteTestId || quoteId.toLowerCase() !== config.quoteTestId))
       throw new CheckoutError('TEST_QUOTE_ONLY','Live payment is currently restricted to the approved merchant test quotation.',403);
     const method = req.body?.method || 'card';

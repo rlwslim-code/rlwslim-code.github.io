@@ -1,0 +1,30 @@
+GRIM merchant-only live checkout pilot (2026-10-15)
+
+This is a COMPLETE BACKEND SOURCE ZIP assembled from your uploaded GRIM_Backend_Replacement(1).zip plus a targeted checkout update. MERGE FILES. Do not delete public/ or existing website files.
+
+WHAT CHANGED
+- Added a merchant-email allowlist for approved delivery quotation payments, instead of making all customer payments public.
+- GET /api/checkout2/shipping/hybrid/requests now identifies available payment methods per quotation (legacy top-level paymentEnabled remains false).
+- Card, Paystack bank-transfer and wallet use existing verified checkout paths (no bypass of verification / wallet balance protection).
+- GET /api/checkout2/config and quote requests now expose detected country for future storefront localization.
+
+VERCEL PRODUCTION ENVIRONMENT (required, do not place secrets in code):
+ GRIM_QUOTE_MERCHANT_TEST_ENABLED=true
+ GRIM_QUOTE_MERCHANT_TEST_EMAIL=<email of the account you will sign in with>
+ GRIM_QUOTE_LIVE_PAYMENTS_ENABLED=true
+ GRIM_CHECKOUT2_ACCEPT_NEW_ORDERS=true
+ GRIM_CHECKOUT2_LIVE_ENABLED=true
+ GRIM_CHECKOUT2_PROD_DB_CONFIRMED=true (ONLY once SQL migrations have been verified)
+ GRIM_CHECKOUT2_PUBLIC_ORIGIN=https://grimwear.store (or https://www.grimwear.store)
+ GRIM_CHECKOUT2_LIVE_BANK_TRANSFER_ENABLED=true (only if Paystack allows bank transfers for your merchant)
+ GRIM_CHECKOUT2_LIVE_WALLET_ENABLED=true (only after verifying existing wallet debit SQL)
+ GRIM_CHECKOUT2_MANUAL_WALLET_ENABLED=true (only after verifying existing wallet debit SQL)
+ GRIM_HYBRID_QUOTE_REQUESTS_ENABLED=true
+ Also requires valid PAYSTACK live secret, Supabase URL/service key and >=32-char SESSION_SECRET.
+
+Do not set GRIM_QUOTE_ALL_APPROVED_ENABLED=true for a merchant-only test: it opens approved quotes to all accounts.
+
+CURRENCY LIMITATION:
+ The current checkout prices, wallet, Supabase kobo columns and Paystack payment engine operate in NGN. Country auto-detection is implemented for BACKEND CONTEXT only. It does NOT turn NGN into USD/GBP or update storefront product prices, and no exchange rate is invented. International currency checkout needs further integration with your public/ storefront, verified exchange-rate snapshot, shipping pricing, and supported payment settlement currencies. The ZIP does NOT fully meet multi-currency checkout requests.
+
+ALWAYS first confirm backend is ready via /api/checkout2/config and your merchant account before making a minimal real-money transaction. Never use a real payment while configuration blockers are present; do not repeatedly retry a pending transaction. Existing orders/customer rows must not be reset.

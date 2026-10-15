@@ -54,7 +54,7 @@ test('quote list enables payment for only allowed, ready, unpaid quotation',asyn
     provider:{},store:{health:async()=>true}});
   const res=await invoke(routes.routes.get.get('/shipping/hybrid/requests'));
   assert.equal(res.statusCode,200);
-  assert.equal(res.result.paymentEnabled,false);
+  assert.equal(res.result.paymentEnabled,true);
   assert.deepEqual(res.result.requests.map(q=>q.paymentEnabled),[true,false,false]);
 });
 test('payments blocked for unapproved quote UUID before Paystack initialization',async()=>{
