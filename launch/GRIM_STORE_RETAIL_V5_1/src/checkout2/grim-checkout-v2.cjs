@@ -203,13 +203,35 @@ function createEngine({
       return view(
         await store.complete({ reference, providerId: String(payment.id), evidence: verified.evidence }),
       );
-    } catch {
-      await store.flag(reference, "reconciliation_required").catch(() => {});
+    } catch (error) {
+      // This is a verified Paystack charge whose DB finalize failed. Keep the
+      // charge reference in an unresolved state; never initialize another one.
+      // Vercel server logs expose the SQLSTATE needed to fix the real schema/RPC
+      // problem, while the customer gets no raw database details.
+      const safe = value => String(value || '')
+        .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[email]')
+        .replace(/sk_(?:live|test)_[A-Za-z0-9]+/g, '[secret]')
+        .slice(0, 320);
+      console.error('[GRIM2 ORDER RECONCILIATION FAILURE]', {
+        reference,
+        operation: safe(error?.operation || 'grim2_finish_card_live_verified'),
+        dbCode: safe(error?.code || 'unknown'),
+        dbMessage: safe(error?.databaseMessage || error?.message || 'unavailable'),
+        dbHint: safe(error?.databaseHint),
+        dbDetails: safe(error?.databaseDetails),
+      });
+      try {
+        await store.flag(reference, "reconciliation_required");
+      } catch (flagError) {
+        console.error('[GRIM2 RECONCILIATION STATUS UPDATE FAILED]', {
+          reference, code: safe(flagError?.code || 'unknown'),
+          message: safe(flagError?.databaseMessage || flagError?.message),
+        });
+      }
       return {
         ...view(row),
         status: "reconciliation_required",
-        message:
-          "Payment confirmed. Order recording is pending. Do not pay again.",
+        message: "Payment confirmed by the provider. Order recording is pending; do not pay again. Contact GRIM with this reference.",
       };
     }
   }

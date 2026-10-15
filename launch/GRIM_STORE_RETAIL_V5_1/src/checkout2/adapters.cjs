@@ -44,13 +44,19 @@ function createSupabaseStore({ url, serviceKey, fetcher = fetch, mode = "test" }
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      const e = await res.json().catch(() => ({}));
+      // Preserve the PostgREST SQLSTATE for diagnosis. Never send raw database
+      // details to the browser: they may contain order/customer information.
+      const details = await res.json().catch(() => ({}));
       const err = new Error(
-        /insufficient|frozen|inactive/i.test(e.message || "")
+        /insufficient|frozen|inactive/i.test(details.message || "")
           ? "insufficient or inactive wallet"
           : "Checkout database request failed",
       );
-      err.code = e.code;
+      err.code = typeof details.code === 'string' ? details.code : 'RPC_HTTP_' + res.status;
+      err.operation = name;
+      err.databaseMessage = typeof details.message === 'string' ? details.message : '';
+      err.databaseHint = typeof details.hint === 'string' ? details.hint : '';
+      err.databaseDetails = typeof details.details === 'string' ? details.details : '';
       throw err;
     }
     return res.json();
