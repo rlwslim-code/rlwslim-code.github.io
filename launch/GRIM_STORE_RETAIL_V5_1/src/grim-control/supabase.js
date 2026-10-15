@@ -6,7 +6,7 @@ const testEnvironment = process.env.VERCEL_ENV === 'preview' ||
 const isolated = process.env.GRIM_CHECKOUT2_DB_ISOLATED === 'true' &&
   process.env.GRIM_CHECKOUT2_SUPABASE_URL !== process.env.SUPABASE_URL;
 const url = testEnvironment ? (isolated ? process.env.GRIM_CHECKOUT2_SUPABASE_URL : null) : process.env.SUPABASE_URL;
-const secret = testEnvironment ? (isolated ? process.env.GRIM_CHECKOUT2_SUPABASE_SERVICE_ROLE_KEY : null) : process.env.SUPABASE_SECRET_KEY;
+const secret = testEnvironment ? (isolated ? process.env.GRIM_CHECKOUT2_SUPABASE_SERVICE_ROLE_KEY : null) : (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 export const grimSupabase =
   url && secret

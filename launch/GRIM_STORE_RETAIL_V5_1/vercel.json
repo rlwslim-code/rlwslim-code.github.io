@@ -3,11 +3,6 @@
   "framework": null,
   "buildCommand": "npm run check",
   "outputDirectory": "public",
-  "functions": {
-    "api/index.js": {
-      "includeFiles": "src/checkout2/**"
-    }
-  },
   "rewrites": [
     {
       "source": "/api/(.*)",
@@ -36,5 +31,10 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "src/**"
+    }
+  }
 }

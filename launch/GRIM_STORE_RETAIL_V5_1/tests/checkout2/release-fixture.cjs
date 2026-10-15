@@ -31,4 +31,4 @@ async function releaseFixture(){
  const store=createSupabaseStore({url:'https://local-fixture.supabase.co',serviceKey:'fixtureonly',mode:'live',fetcher:async(u,o)=>{try{const data=await rpc(u.split('/').pop(),JSON.parse(o.body));return {ok:true,json:async()=>data};}catch(e){return {ok:false,json:async()=>({message:e.message,code:e.code})};}}});
  return {db,store,rpc,customerId,close:()=>db.close(),debitSQL};
 }
-module.exports={releaseFixture,customerId};
+module.exports={releaseFixture,customerId,debitSQL};

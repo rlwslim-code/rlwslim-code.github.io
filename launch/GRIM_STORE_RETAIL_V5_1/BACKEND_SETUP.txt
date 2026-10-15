@@ -1,0 +1,93 @@
+GRIM BACKEND REPLACEMENT — 15 OCTOBER 2026
+
+WHAT TO UPLOAD
+Copy this archive's launch/GRIM_STORE_RETAIL_V5_1 contents into that existing
+website directory on main. Merge/replace matching files; keep public/, images,
+existing environment secrets, customer records and wallet data.
+The new backend entrypoint is src/grim-backend.js. src/server.js remains a
+compatibility import. api/index.js loads the new backend directly.
+This is a backend overlay, not a replacement storefront or a whole repository.
+
+ONE DATABASE INSTALLATION
+Run sql/20261015_backend_upgrade.sql once in the existing Supabase SQL editor.
+It combines the recovered checkout, delivery and three-method quote functions
+in one transaction, fixes the earlier wallet SQL syntax, and records the UUID
+order schema shown in the uploaded history. It does not reset or credit balances.
+It requires the existing customers, orders, wallet_accounts, wallet_transactions
+and grim_wallet_debit function. If prerequisites differ, it raises an error and
+rolls back. No mock customer, product, order or balance is installed.
+Do not run the old REVIEW SQL files separately for this release.
+
+HOST CONFIGURATION
+Keep the existing actual Supabase and Paystack secrets. Required:
+SESSION_SECRET (stable, at least 32 characters)
+SUPABASE_URL
+SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY)
+PAYSTACK_SECRET_KEY (or GRIM_CHECKOUT2_LIVE_PAYSTACK_SECRET_KEY for checkout)
+GRIM_CHECKOUT2_PUBLIC_ORIGIN=https://grimwear.store
+
+After the SQL installation, the existing Production settings for the requested
+three-method workflow are:
+GRIM_CHECKOUT2_LIVE_ENABLED=true
+GRIM_CHECKOUT2_PROD_DB_CONFIRMED=true
+GRIM_CHECKOUT2_ACCEPT_NEW_ORDERS=true
+GRIM_HYBRID_DELIVERY_ENABLED=true
+GRIM_HYBRID_QUOTE_REQUESTS_ENABLED=true
+GRIM_QUOTE_LIVE_PAYMENTS_ENABLED=true
+GRIM_QUOTE_ALL_APPROVED_ENABLED=true
+GRIM_CHECKOUT2_LIVE_BANK_TRANSFER_ENABLED=true
+GRIM_CHECKOUT2_LIVE_WALLET_ENABLED=true
+GRIM_CHECKOUT2_MANUAL_WALLET_ENABLED=true
+Clear the old GRIM_CHECKOUT2_LIVE_TEST_QUOTE_ID for normal zone/courier checkout.
+Do not put secret values into GitHub files. Flag defaults stay off in code;
+this archive cannot change your Vercel environment or apply SQL automatically.
+Set Paystack's live webhook to:
+https://grimwear.store/api/checkout2/webhook
+The hosted Paystack bank-transfer option depends on your merchant account.
+
+WORKFLOW
+1. Customer signs in; checkout reads the same Supabase customer and wallet.
+2. Configured measured zone rates appear as delivery choices, including a
+   configured zero-fee rate. The signed choice binds customer, address, products,
+   prices and rate, expires after ten minutes, and is checked again before payment.
+3. Without a configured rate, customer requests a delivery quote. Admin confirms
+   the fee; each approved, unexpired quote can start its own payment automatically.
+4. Card and bank transfer open Paystack with the server-calculated total. A
+   callback or signed webhook triggers server verification of reference, amount,
+   currency, customer, environment and selected channel.
+5. Wallet checkout uses the existing atomic wallet debit inside the same database
+   transaction as the order and receipt. A failure rolls everything back.
+6. Retries reuse the stored reference. Duplicate callbacks do not create another
+   order or debit. Paid money with an order-recording failure stays recoverable.
+7. Saved billing uses the existing protected address store. Partial profile or
+   address failures no longer hide wallet and payment recovery results.
+
+VALIDATION ALREADY RUN
+183 automated backend/regression tests passed, including isolated PostgreSQL
+execution of the consolidated migration twice, UUID orders, all three methods,
+repeated callbacks, wallet ledger linkage, saved-address deduplication, historical
+record preservation, amount/channel mismatches, session isolation and HTTP smoke
+checks of the full backend. Syntax checks passed.
+The browser test could not launch Chromium in this execution environment:
+EINVAL chown /tmp/fonts. It is not recorded as a pass.
+No live database was contacted, no production settings were changed, and no real
+payment was made. Live Paystack eligibility, installed wallet RPC behavior, email
+delivery credentials and production schema are not proven by isolated tests.
+No additional user-run test script is required by this package.
+
+SCOPE
+Preserves the uploaded customer/auth, admin, products, support, appearance,
+address autocomplete and wallet modules. This release integrates backend payment,
+order, delivery and billing paths; it does not rebuild the website or mobile app.
+Existing email delivery still needs valid RESEND_API_KEY and
+TWO_FACTOR_FROM_EMAIL (verified sender). It cannot repair provider settings from
+an offline ZIP. Checkout settlement is recorded in orders/receipts; this release
+does not add a new transactional email worker or automatic courier booking.
+Live checkout and wallet funding remain NGN. Existing other-currency wallets are
+preserved; this release does not invent exchange rates or currency conversion.
+
+ROLLBACK
+Retain the current backend files before replacing them. Pause new ordering with
+GRIM_CHECKOUT2_ACCEPT_NEW_ORDERS=false; keep recovery routes and webhook available
+for existing payments. Restore prior source if needed. Do not delete attempts,
+receipts, customer records or ledger entries when rolling back.

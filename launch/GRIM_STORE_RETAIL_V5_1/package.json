@@ -1,23 +1,23 @@
 {
   "name": "grim-store",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "engines": {
     "node": "22.x"
   },
   "scripts": {
-    "start": "node src/server.js",
+    "start": "node src/grim-backend.js",
     "test": "node --test tests/checkout2/*.test.cjs",
     "check": "node scripts/check-syntax.cjs",
     "test:browser": "node tests/checkout2/browser.cjs",
     "deploy:preview": "node scripts/deploy-preview.cjs",
-    "test:release": "npm run check && npm test && npm run test:browser"
+    "test:release": "npm run check && npm test && npm run test:browser",
+    "test:backend": "node --test tests/checkout2/backend-upgrade.test.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.7.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-session": "^1.18.1",
