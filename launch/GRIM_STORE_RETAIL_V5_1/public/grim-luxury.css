@@ -34,3 +34,15 @@
  .care-fab{padding:11px 13px!important;font-size:8px!important;bottom:16px!important}
 }
 @media(min-width:801px){.mobile-nav{display:none!important}}
+
+/* GRIM signature shopping bag and elevated cart drawer */
+.site-header .actions .grim-cart-btn{display:inline-flex!important;align-items:center;justify-content:center;gap:0;position:relative;color:var(--grim-gold)!important}
+.site-header .actions .grim-cart-btn svg{display:block;flex:none;stroke:currentColor}
+.site-header .actions .grim-cart-btn #count{position:absolute;right:-6px;top:-4px;min-width:16px;height:16px;border-radius:50%;display:grid;place-items:center;background:#a68851!important;color:#0b0a0b!important;font:700 10px Arial,sans-serif!important}
+#bag{background:linear-gradient(155deg,#161316,#09090b 60%)!important;color:#f3eee7!important;border-left:1px solid #bfa46a66!important;box-shadow:-18px 0 65px #0009!important;max-width:100vw}
+#bag h2{font-family:Georgia,serif!important;font-weight:400!important;font-size:clamp(27px,6vw,40px)!important;letter-spacing:.035em!important;color:#f2eadc!important}
+#bag .grim-cart-kicker{display:block;font:10px/1.6 Arial,sans-serif;letter-spacing:.19em;color:#c6aa70;margin:24px 30px 6px 0}
+#bag .bag-total{border-top:1px solid #bfa46a55!important;margin-top:22px!important;padding-top:20px!important}
+#bag .grim-checkout-action{background:#bda06a!important;color:#100e10!important;border:1px solid #d6bd88!important;font-weight:700!important;letter-spacing:.11em!important}
+#bag .continue{color:#d3bc8e!important}
+@media(max-width:800px){.site-header .actions .grim-cart-btn:before{content:none!important}.site-header .actions .grim-cart-btn{font-size:initial!important;width:34px!important}.site-header .actions .grim-cart-btn svg{width:25px;height:29px}#bag{width:min(100vw,440px)!important}}

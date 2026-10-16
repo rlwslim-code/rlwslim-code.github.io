@@ -48,7 +48,7 @@
       <button id="marketBtn" onclick="openMarket()">🌐 <span id="marketLabel">GLOBAL · NGN</span></button>
       <button onclick="openSearch()" class="grim-search-btn" aria-label="Search products">SEARCH</button>
       <button onclick="openAuth()" id="acct">ACCOUNT</button>
-      <button onclick="openBag()" class="grim-cart-btn" aria-label="Open cart">BAG <b id="count">0</b></button>
+      <button onclick="openBag()" class="grim-cart-btn" aria-label="Open cart"><svg viewBox="0 0 32 36" width="25" height="28" fill="none" aria-hidden="true"><path d="M5 12h22l2 21H3L5 12Z" stroke="currentColor" stroke-width="1.5"/><path d="M10 13V9a6 6 0 0 1 12 0v4" stroke="currentColor" stroke-width="1.5"/></svg><b id="count">0</b></button>
     </div>
   </header>
 
@@ -100,12 +100,12 @@
 
   <aside id="bag">
     <button class="x" onclick="closeBag()">×</button>
-    <h2>YOUR CART</h2>
+    <span class="grim-cart-kicker">THE GRIM COLLECTION · PRIVATE SELECTION</span><h2>YOUR SELECTION</h2>
     <p class="muted">Review sizes and quantities before checkout.</p>
     <div id="items"></div>
     <div class="bag-total"><span>SUBTOTAL</span><h3 id="total">₦0</h3></div>
     <small class="muted">Delivery fees, if applicable, are confirmed separately.</small>
-    <button class="dark full" onclick="openCheckout()">CHECKOUT SECURELY</button>
+    <button class="dark full grim-checkout-action" onclick="openCheckout()">PROCEED TO SECURE CHECKOUT &nbsp; ↗</button>
     <button class="continue" onclick="closeBag()">CONTINUE SHOPPING</button>
   </aside>
 
