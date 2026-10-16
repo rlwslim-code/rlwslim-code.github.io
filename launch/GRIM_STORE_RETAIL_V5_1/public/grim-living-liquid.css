@@ -1,0 +1,6 @@
+/* GRIM Living Liquid | isolated visual layer; no auth, cart or checkout changes */
+.grim-liquid-host{position:relative!important;isolation:isolate;overflow:hidden!important;}
+.grim-liquid-surface{position:absolute;inset:0;z-index:1;overflow:hidden;border-radius:inherit;pointer-events:none;contain:paint;}
+.grim-liquid-surface canvas{display:block;width:100%;height:100%;pointer-events:none;}
+.grim-liquid-host>.grim-liquid-foreground{position:relative;z-index:2;pointer-events:none;}
+@media(prefers-reduced-motion:reduce){.grim-liquid-surface{display:none!important}.grim-liquid-host:focus-visible{outline:2px solid #6e83d9;outline-offset:3px}}
