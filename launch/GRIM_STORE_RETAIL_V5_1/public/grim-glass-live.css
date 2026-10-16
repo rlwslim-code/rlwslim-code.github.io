@@ -1,0 +1,19 @@
+/* GRIM Bloodline × Abyss: single shared glass system, no rectangular tap overlay */
+:root{--gg-red:#9c173c;--gg-blue:#135ca8;--gg-white:#f5f6fb;--gg-border:rgba(166,190,255,.19);--gg-surface:rgba(13,18,31,.66)}
+html{background:#060912}body{color:var(--gg-white);background:radial-gradient(ellipse 70vw 60vw at 90% 10%,rgba(18,72,145,.20),transparent 72%),radial-gradient(ellipse 70vw 65vw at 0% 45%,rgba(126,10,48,.17),transparent 70%),#060912!important;background-attachment:fixed!important}
+body:before{content:'';position:fixed;inset:-25%;z-index:-1;pointer-events:none;background:radial-gradient(ellipse 30% 26% at 22% 38%,rgba(162,20,67,.13),transparent 90%),radial-gradient(ellipse 28% 32% at 76% 61%,rgba(19,91,184,.16),transparent 90%);animation:gg-ambient 19s ease-in-out infinite alternate;filter:blur(24px)}
+@keyframes gg-ambient{from{transform:translate3d(-3%,2%,0) rotate(-5deg)}to{transform:translate3d(4%,-3%,0) rotate(8deg)}}
+:is(.site-header,.mobile-nav,.shop-tools,.category-strip,.bag,.bag-panel,.drawer,.modal .box,.card,.product-card,.product,.order-card,.wallet-card,.panel,.account-panel,.checkout-card,.checkout-step,.settings-card,.filters,.results,.page-head,.hero .content,.admin-card,.stat-card,.toast,.dropdown,.search-panel,.care-fab){background-color:var(--gg-surface)!important;background-image:linear-gradient(132deg,rgba(214,228,255,.09),transparent 42%,rgba(24,91,185,.07) 78%,rgba(154,25,69,.08))!important;border:1px solid var(--gg-border)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.13),inset 0 -1px 0 rgba(120,158,255,.045),0 14px 42px rgba(0,0,0,.28)!important;backdrop-filter:blur(24px) saturate(1.4)!important;-webkit-backdrop-filter:blur(24px) saturate(1.4)!important}
+:is(.site-header,.mobile-nav,.shop-tools,.category-strip,.bag,.drawer,.modal .box,.card,.product-card,.product,.order-card,.wallet-card,.panel,.checkout-card,.checkout-step,.settings-card,.filters,.results,.page-head,.admin-card,.stat-card,.dropdown,.search-panel){border-radius:22px!important}
+.site-header{border-radius:0 0 22px 22px!important}.mobile-nav{z-index:1001}.modal .box,.drawer,.bag,.bag-panel{color:var(--gg-white)!important}
+:is(button,.btn,[role=button],input[type=submit],.category-strip button,.actions button,.dark,.primary,.care-fab){border-radius:999px!important;transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .3s,background-color .3s!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.13),0 4px 20px rgba(8,33,72,.18)!important}
+:is(button,.btn,[role=button],input[type=submit],.category-strip button,.actions button):active{transform:scale(.975)!important}
+:is(input,select,textarea){background:rgba(10,18,36,.8)!important;color:#f5f6fb!important;border:1px solid rgba(129,162,218,.29)!important;border-radius:15px!important;box-shadow:inset 0 1px 8px rgba(0,0,0,.12)!important}
+:is(input,select,textarea)::placeholder{color:#b8c1d2!important;opacity:1}
+:is(h1,h2,h3,.page-title,.eyebrow){color:#f8f8fc!important;text-shadow:0 1px 22px rgba(101,152,255,.15)}
+:is(p,.muted,.results,.shop-tools label,.bag .subtotal,.drawer p){color:#cbd1df!important}
+:is(a,button){-webkit-tap-highlight-color:transparent}
+:is(a,button,input,select,textarea):focus-visible{outline:2px solid #66a8f8!important;outline-offset:3px}
+#grim-glass-live-canvas{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;pointer-events:none!important;z-index:2147483600!important;background:transparent!important;mix-blend-mode:screen;contain:strict}
+@media(max-width:600px){.shop-tools{padding:16px!important;gap:12px!important}.page-head{margin:18px 12px!important;padding:22px!important}.site-header{padding:10px 12px!important}}
+@media(prefers-reduced-motion:reduce){body:before{animation:none!important}#grim-glass-live-canvas{display:none!important}*{scroll-behavior:auto!important}}
