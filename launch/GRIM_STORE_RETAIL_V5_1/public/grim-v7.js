@@ -1,7 +1,7 @@
 (()=>{
 "use strict";
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
-const api=async(u,o={})=>{const r=await fetch(u,{credentials:"same-origin",headers:{"Content-Type":"application/json",...(o.headers||{})},...o});const b=await r.json().catch(()=>({}));if(!r.ok){const err=new Error(b.error||"Request failed");err.status=r.status;throw err;}return b};
+const api=async(u,o={})=>{const r=await fetch(u,{credentials:"same-origin",headers:{"Content-Type":"application/json",...(o.headers||{})},...o});const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error||"Request failed");return b};
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 const css=document.createElement("style");
@@ -43,6 +43,21 @@ body{background:var(--obsidian)}
 `;
 document.head.append(css);
 
+// Read-only fallback to the proven /api/account session. Never credit or debit a wallet here.
+async function grimWalletRead(){
+ try{return await api('/api/v8/wallet')}
+ catch(primaryError){
+  const response=await fetch('/api/account',{credentials:'same-origin',cache:'no-store'});
+  if(response.status===401)throw new Error('Sign in to continue.');
+  if(!response.ok)throw new Error('Wallet is temporarily unavailable. Please retry.');
+  const a=await response.json();
+  if(!a.user)throw new Error('Account information unavailable.');
+  return {ok:true,readOnlyFallback:true,
+   accounts:[{currency:a.wallet?.currency||'NGN',balance_minor:Math.round(Number(a.wallet?.balance||0)*100),status:a.wallet?.active?'active':'inactive'}],
+   transactions:(a.transactions||[]).map(t=>({currency:t.currency||'NGN',amount_minor:t.amount_minor??Math.round(Number(t.amount||0)*100),description:t.description||t.note||t.type,status:t.status,created_at:t.created_at}))};
+ }
+}
+
 function currency(){const t=$("#marketLabel")?.textContent||"";return t.match(/(?:·|\s)([A-Z]{3})\s*$/)?.[1]||localStorage.getItem("grimCurrency")||"USD"}
 function money(n,c){try{return new Intl.NumberFormat(undefined,{style:"currency",currency:c||"USD"}).format(Number(n||0))}catch{return `${c||"USD"} ${Number(n||0).toLocaleString()}`}}
 function mountTop(){
@@ -63,10 +78,10 @@ function minorMoney(n,c){return displayWalletMoney(n,c)}
 async function loadWallet(){
  const market=currency();if($(".g7-wallet-market"))$(".g7-wallet-market").textContent=market;
  try{
-  const w=await api("/api/v8/wallet"),accounts=Array.isArray(w.accounts)?w.accounts:[];
+  const w=await grimWalletRead(),accounts=Array.isArray(w.accounts)?w.accounts:[];
   const preferred=accounts.find(x=>x.currency===market)||accounts.find(x=>x.currency==="NGN")||accounts[0];
   $(".g7-wallet-balance").textContent=preferred?minorMoney(preferred.balance_minor,preferred.currency):money(0,market);
- }catch(e){if($(".g7-wallet-balance"))$(".g7-wallet-balance").textContent=e.status===401?"SIGN IN":"WALLET UNAVAILABLE"}
+ }catch{if($(".g7-wallet-balance"))$(".g7-wallet-balance").textContent="SIGN IN"}
 }
 
 async function openWallet(){
@@ -76,7 +91,7 @@ async function openWallet(){
  document.body.append(m);m.querySelector(".g7-x").onclick=closeG7;
  const body=m.querySelector(".g7-wallet-body");
  try{
-  const w=await api("/api/v8/wallet"),accounts=Array.isArray(w.accounts)?w.accounts:[],txs=Array.isArray(w.transactions)?w.transactions:[];
+  const w=await grimWalletRead(),accounts=Array.isArray(w.accounts)?w.accounts:[],txs=Array.isArray(w.transactions)?w.transactions:[];
   const market=currency(),preferred=accounts.find(x=>x.currency===market)||accounts.find(x=>x.currency==="NGN")||accounts[0],shownCurrency=(preferred?.currency==="NGN"&&market!=="NGN")?market:(preferred?.currency||market),shownBalance=preferred?.balance_minor||0;
   body.innerHTML=`<div class="g7-wallet-total"><small>AVAILABLE BALANCE · ${esc(shownCurrency)}</small><strong>${esc(preferred?.currency==="NGN"?minorMoney(shownBalance,"NGN"):minorMoney(shownBalance,shownCurrency))}</strong></div><div class="g7-wallet-accounts"></div><div class="g7-wallet-actions"><button class="fund" type="button">FUND WALLET</button><button class="refresh" type="button">REFRESH</button></div><p class="g7-status">Wallet funding is verified securely before your balance is credited.</p><div class="g7-wallet-transactions"><small>RECENT ACTIVITY</small><div class="txlist"></div></div>`;
   const al=body.querySelector(".g7-wallet-accounts");
@@ -85,10 +100,10 @@ async function openWallet(){
   const tl=body.querySelector(".txlist");
   if(!txs.length)tl.innerHTML='<div class="g7-wallet-empty">No wallet transactions yet.</div>';
   else txs.slice(0,20).forEach(t=>{const d=document.createElement("div");d.className="g7-wallet-tx";const when=t.created_at?new Date(t.created_at).toLocaleString():"";d.innerHTML=`<span>${esc(t.description||t.transaction_type||"Wallet activity")}</span><small>${esc(when)}${t.status?` · ${esc(t.status)}`:""}</small><strong>${esc(minorMoney(t.amount_minor,t.currency))}</strong>`;tl.append(d)});
-  body.querySelector(".fund").onclick=()=>openWalletFunding(m);
+  if(w.readOnlyFallback){body.querySelector(".fund").disabled=true;body.querySelector(".g7-status").textContent="Balance shown from your GRIM account. Wallet funding is temporarily unavailable.";}else body.querySelector(".fund").onclick=()=>openWalletFunding(m);
   body.querySelector(".refresh").onclick=()=>{m.remove();openWallet()};loadWallet();
  }catch(e){
-  if(e.status===401){body.innerHTML='<div class="g7-wallet-error">Sign in to open your GRIM Wallet.</div><div class="g7-choice"><button class="signin" type="button">SIGN IN</button></div>';body.querySelector(".signin").onclick=()=>{m.remove();if(typeof openAuth==="function")openAuth();else $("#acct")?.click()}}
+  if(/sign in/i.test(e.message||"")){body.innerHTML='<div class="g7-wallet-error">Sign in to open your GRIM Wallet.</div><div class="g7-choice"><button class="signin" type="button">SIGN IN</button></div>';body.querySelector(".signin").onclick=()=>{m.remove();if(typeof openAuth==="function")openAuth();else $("#acct")?.click()}}
   else{body.innerHTML=`<div class="g7-wallet-error">${esc(e.message||"Unable to load GRIM Wallet.")}</div><div class="g7-choice"><button class="retry" type="button">TRY AGAIN</button></div>`;body.querySelector(".retry").onclick=()=>{m.remove();openWallet()}}
  }
 }

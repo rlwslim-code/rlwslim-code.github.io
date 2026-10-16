@@ -222,9 +222,11 @@ installGrimV7(app, { supabase: grimSupabase });
 installGrimControl(app);
 
 // Feature flags default OFF: existing checkout and production routes remain unchanged.
+// Customer orders page is read-only and uses the existing authenticated /api/account.
+// Keep the optional Stage 7 history API behind its original feature flag.
+installGrimOrdersPage(app);
 if (process.env.GRIM_STAGE7_ORDERS_ENABLED === 'true') {
   installGrimCustomerOrders(app, {supabase: grimSupabase});
-  installGrimOrdersPage(app);
 }
 if (process.env.GRIM_STAGE7_EMAIL_WORKER_ENABLED === 'true') {
   installGrimEmailWorker(app, {supabase: grimSupabase});
@@ -485,25 +487,8 @@ app.get("/api/market", (req, res) => {
 });
 
 app.get("/api/me", (req, res) => {
-  res.setHeader("Cache-Control", "private, no-store");
-  res.setHeader("Vary", "Cookie");
-  // The V6 middleware above restores a verified customer from the signed cookie.
-  // Return one consistent account shape to every same-origin GRIM page.
-  const user = req.session?.user;
-  if (!user?.email) return res.json(null);
-  return res.json({id:user.id,name:user.name,firstName:user.firstName,
-    lastName:user.lastName,email:user.email,phone:user.phone});
-});
-
-// Safe, read-only session health endpoint; never expose cookies or secrets.
-app.get('/api/auth/session-status', (req,res) => {
-  res.setHeader('Cache-Control','private, no-store');
-  res.setHeader('Vary','Cookie');
-  const user=req.session?.user;
-  res.json({authenticated:!!user?.email,
-    accountType: user?.email ? (/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(String(user.id||'')) ? 'supabase' : 'legacy') : 'none',
-    accountServicesConfigured:!!grimSupabase,
-    sessionSecretConfigured:!!process.env.SESSION_SECRET});
+  res.setHeader("Cache-Control", "no-store");
+  res.json(req.session?.user || null);
 });
 
 app.get("/api/google-config", (_req, res) => {

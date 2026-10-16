@@ -14,7 +14,31 @@ const categories=[['all','All orders'],['awaiting_fulfillment','Awaiting fulfill
 let orders=[],filter='all';
 const el=(tag,cls,text)=>{const node=document.createElement(tag);if(cls)node.className=cls;if(text!==undefined)node.textContent=String(text);return node};
 function detail(parent,label,value){const d=el('div');d.append(el('span','muted',label),el('b','',value));parent.append(d)}
-function render(){const nav=document.getElementById('filters');nav.replaceChildren();for(const [id,label] of categories){const b=el('button','',label);b.type='button';b.setAttribute('aria-pressed',String(filter===id));b.addEventListener('click',()=>{filter=id;render()});nav.append(b)}const list=document.getElementById('orders');list.replaceChildren();const shown=orders.filter(o=>filter==='all'||o.category===filter);document.getElementById('status').textContent=shown.length?shown.length+' order(s)':(filter==='all'?'No active GRIM orders. Your next chapter starts here.':(filter==='all'?'No active GRIM orders. Your next chapter starts here.':'No orders in this category.'));for(const o of shown){const card=el('article','card');const top=el('div','cardhead');top.append(el('span','orderid','ORDER #'+o.id),el('span','badge',(o.category||'unknown').replaceAll('_',' ').toUpperCase()));card.append(top);const meta=el('div','meta','Placed: '+(o.created_at?new Date(o.created_at).toLocaleString():'Date unavailable'));card.append(meta);const info=el('div','detail');detail(info,'Payment',o.payment_status||'Unknown');detail(info,'Fulfillment',o.status||'Awaiting update');detail(info,'Order total',o.total==null?'Not available':'₦'+Number(o.total).toLocaleString('en-NG'));detail(info,'Reference',o.payment_reference||'Not available');card.append(info);list.append(card)}}
-async function load(){try{const r=await fetch('/api/account/order-history',{credentials:'same-origin',cache:'no-store'});if(r.status===401){document.getElementById('status').innerHTML='Sign in once to see your GRIM orders. <a class="action" href="/?grim_login_required=1">Sign in</a>';return}if(!r.ok)throw Error('Order history unavailable');const data=await r.json();orders=Array.isArray(data.orders)?data.orders:[];render()}catch(e){document.getElementById('status').textContent='Order history is temporarily unavailable. Refresh to retry.'}}
+function render(){const nav=document.getElementById('filters');nav.replaceChildren();for(const [id,label] of categories){const b=el('button','',label);b.type='button';b.setAttribute('aria-pressed',String(filter===id));b.addEventListener('click',()=>{filter=id;render()});nav.append(b)}const list=document.getElementById('orders');list.replaceChildren();const shown=orders.filter(o=>filter==='all'||o.category===filter);document.getElementById('status').textContent=shown.length?shown.length+' order(s)':'No orders in this category.';for(const o of shown){const card=el('article','card');const top=el('div','cardhead');top.append(el('span','orderid','ORDER #'+o.id),el('span','badge',(o.category||'unknown').replaceAll('_',' ').toUpperCase()));card.append(top);const meta=el('div','meta','Placed: '+(o.created_at?new Date(o.created_at).toLocaleString():'Date unavailable'));card.append(meta);const info=el('div','detail');detail(info,'Payment',o.payment_status||'Unknown');detail(info,'Fulfillment',o.status||'Awaiting update');detail(info,'Order total',o.total==null?'Not available':'₦'+Number(o.total).toLocaleString('en-NG'));detail(info,'Reference',o.payment_reference||'Not available');card.append(info);list.append(card)}}
+async function load(){
+ const status=document.getElementById('status');
+ try{
+  // /api/account is already proven to recognize the signed-in GRIM customer.
+  // Never accept an account ID or email from URL parameters or browser storage.
+  const r=await fetch('/api/account',{credentials:'same-origin',cache:'no-store'});
+  if(r.status===401){status.textContent='Sign in to view your GRIM orders.';
+   const sign=document.createElement('a');sign.className='action';sign.href='/?grim_login_required=1';sign.textContent='SIGN IN';status.append(document.createElement('br'),sign);return}
+  if(!r.ok)throw Error('Account service unavailable ('+r.status+')');
+  const data=await r.json();
+  orders=(Array.isArray(data.orders)?data.orders:[]).map(o=>{
+   const s=String(o.status||'').toLowerCase(),p=String(o.payment_status||'').toLowerCase();
+   const category=['cancelled','canceled','void'].includes(s)?'cancelled':
+    ['delivered','received','completed'].includes(s)?'delivered':
+    ['shipped','dispatched','in_transit','out_for_delivery'].includes(s)?'in_transit':
+    ['under_review','fraud_review','on_hold'].includes(s)?'under_review':
+    p==='paid'?'awaiting_fulfillment':'payment_pending';
+   return {...o,category,total:o.total_kobo!=null?Number(o.total_kobo)/100:
+     (o.total!=null?Number(o.total):null)};
+  });
+  render();
+  if(!orders.length)status.textContent='No active GRIM orders. Your next chapter starts here.';
+ }catch(e){status.replaceChildren(document.createTextNode('Order history is temporarily unavailable. '));
+  const retry=document.createElement('button');retry.type='button';retry.textContent='RETRY';retry.onclick=load;status.append(retry)}
+}
 document.getElementById('logout').addEventListener('click',async()=>{const b=document.getElementById('logout');b.disabled=true;try{const r=await fetch('/api/logout',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'}});if(!r.ok)throw Error('Logout failed');location.replace('/')}catch(e){b.disabled=false;alert('Could not log out. Please retry.')}});load();
 </script></body></html>`;
