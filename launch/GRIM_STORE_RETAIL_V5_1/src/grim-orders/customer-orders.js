@@ -18,15 +18,16 @@ export function installGrimCustomerOrders(app, {supabase} = {}) {
     try {
       // Resolve the signed-in website account to its uniquely matching profile on the server.
       const {data:profileId,error:mapError}=await supabase.rpc('grim_profile_id_for_account',{p_account_id:accountId});
-      if(mapError || !profileId) return res.status(403).json({error:'ACCOUNT_PROFILE_UNAVAILABLE'});
+      if(mapError) return res.status(503).json({error:'ACCOUNT_PROFILE_UNAVAILABLE'});
+      if(!profileId) return res.json({ok:true,orders:[]});
       const {data, error} = await supabase.from('orders')
-        .select('id,created_at,paid_at,status,payment_status,payment_reference,total,items_json')
+        .select('id,created_at,paid_at,status,payment_status,payment_reference,total_kobo,items_json')
         .eq('customer_id', profileId).order('created_at', {ascending:false}).limit(100);
       if (error) throw error;
       return res.json({ok:true,orders:(data||[]).map(o=>({
         id:o.id,created_at:o.created_at,paid_at:o.paid_at,
         status:o.status,payment_status:o.payment_status,
-        payment_reference:o.payment_reference,total:o.total,
+        payment_reference:o.payment_reference,total:Number(o.total_kobo || 0)/100,
         items_json:o.items_json,category:classifyOrder(o)
       }))});
     } catch (e) {
