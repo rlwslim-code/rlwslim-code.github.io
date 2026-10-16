@@ -1,0 +1,36 @@
+/* GRIM Obsidian / Eclipse Gold mobile refinement. Layout-only. */
+:root{--grim-obsidian:#09090b;--grim-gold:#c5a66a;--grim-line:rgba(197,166,106,.24)}
+.site-header{background:var(--grim-obsidian)!important;color:#f6f1e8!important;border-bottom:1px solid var(--grim-line)!important;box-shadow:0 12px 28px #0003}
+.site-header .brand{display:flex;align-items:center;justify-content:center;background:transparent!important;overflow:hidden}
+.site-header .brand img{filter:invert(1) sepia(1) saturate(1.6) hue-rotate(354deg) brightness(.86);mix-blend-mode:screen;object-fit:contain!important}
+.site-header .actions{align-items:center}.site-header .actions button{color:#e7dac4!important;border:0!important;background:transparent!important;letter-spacing:.12em!important}
+.site-header .actions button:hover,.mobile-nav a:hover{color:var(--grim-gold)!important}
+.site-header .hamb{color:var(--grim-gold)!important}
+.mobile-nav.open{background:#101014!important;color:#eee!important;border-bottom:1px solid var(--grim-line)!important;box-shadow:0 22px 42px #0009!important}
+.mobile-nav a,.mobile-nav button{display:block;color:#eee!important;font:500 12px/1.5 Arial,sans-serif!important;letter-spacing:.18em!important;text-decoration:none!important;text-align:left!important;background:none!important;border:0!important;padding:12px 4px!important;width:100%!important}
+.mobile-nav .grim-menu-divider{height:1px;background:var(--grim-line);margin:6px 0}
+.retail-hero{background:#0e0e10!important}.retail-hero>div{max-width:100%;min-width:0}.retail-hero .cta{background:#16131b!important;border:1px solid var(--grim-gold)!important;color:#eee!important;letter-spacing:.16em!important}
+.care-fab{background:#111!important;border-color:var(--grim-line)!important}
+@media(max-width:800px){
+ .top{padding:9px 12px!important;letter-spacing:.12em!important;font-size:8px!important}
+ .site-header{height:68px!important;display:grid!important;grid-template-columns:42px minmax(0,1fr) auto!important;padding:0 14px!important;gap:8px!important}
+ .site-header .hamb{display:block!important;grid-column:1!important;font-size:25px!important;padding:6px!important}
+ .site-header .brand{grid-column:2!important;justify-self:center!important;width:106px!important;min-width:0!important}
+ .site-header .brand img{width:104px!important;height:47px!important}
+ .site-header .actions{grid-column:3!important;margin:0!important;gap:8px!important}
+ .site-header .actions #acct,.site-header .actions #marketBtn,.site-header .actions #grimAccountOrders,.site-header .actions #grimCustomerLogout{display:none!important}
+ .site-header .actions .grim-search-btn{font-size:0!important;width:26px!important;height:36px!important;position:relative!important;padding:0!important}
+ .site-header .actions .grim-search-btn:before{content:'';position:absolute;top:9px;left:3px;width:13px;height:13px;border:1.8px solid var(--grim-gold);border-radius:50%}
+ .site-header .actions .grim-search-btn:after{content:'';position:absolute;top:23px;left:17px;width:9px;height:1.8px;background:var(--grim-gold);transform:rotate(45deg);transform-origin:left center}
+ .site-header .actions .grim-cart-btn{font-size:0!important;width:35px!important;height:36px!important;padding:0!important;position:relative!important}
+ .site-header .actions .grim-cart-btn:before{content:'▢';font-size:29px;line-height:32px;color:var(--grim-gold)}
+ .site-header .actions .grim-cart-btn #count{font-size:10px!important;position:absolute;right:-3px;top:0;color:#f6f1e8}
+ .mobile-nav.open{top:calc(68px + 28px)!important;max-height:calc(100dvh - 96px)!important;overflow:auto!important;padding:18px 24px 28px!important;gap:2px!important}
+ .retail-hero>div{padding:66px 7% 54px!important}
+ .retail-hero h1{font-size:clamp(52px,12.6vw,86px)!important;line-height:.93!important;letter-spacing:-.055em!important;margin:24px 0 28px!important}
+ .retail-hero p{font-size:15px!important;line-height:1.8!important;max-width:330px!important}
+ .retail-hero .cta{font-size:10px!important;padding:17px 22px!important;margin-top:22px!important}
+ .retail-hero img{height:auto!important;max-height:520px!important;aspect-ratio:4/4.3;object-fit:cover!important}
+ .care-fab{padding:11px 13px!important;font-size:8px!important;bottom:16px!important}
+}
+@media(min-width:801px){.mobile-nav{display:none!important}}

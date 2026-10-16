@@ -25,6 +25,7 @@
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"GRIM Store","alternateName":["GRIM Wear","GRIM"],"url":"https://www.grimwear.store/"}</script>
   <link rel="stylesheet" href="/style.css?v=20261007-final2">
   <link rel="stylesheet" href="/grim-frontend-stable.css?v=20261007-final2">
+  <link rel="stylesheet" href="/grim-luxury.css?v=20261016b">
   <style>
   #auth [hidden]{display:none!important}
   #auth input,#auth textarea,#auth select,#authModal input,#authModal textarea,#authModal select{color:#111!important;background:#fffaf3!important;-webkit-text-fill-color:#111!important;opacity:1!important}
@@ -35,7 +36,7 @@
   <div class="top">RAV’KAEL — CHAPTER I · PREORDER <span>•</span> SECURE CHECKOUT <span>•</span> CUSTOMER CARE</div>
 
   <header class="site-header">
-    <button class="hamb" onclick="toggleMobile()">☰</button>
+    <button class="hamb" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mobileNav" onclick="toggleMobile()">☰</button>
     <a class="brand" href="/"><img src="/assets/grim-primary.png" alt="GRIM"></a>
     <nav class="nav">
       <a href="/shop.html">SHOP</a>
@@ -45,9 +46,9 @@
     </nav>
     <div class="actions">
       <button id="marketBtn" onclick="openMarket()">🌐 <span id="marketLabel">GLOBAL · NGN</span></button>
-      <button onclick="openSearch()">SEARCH</button>
+      <button onclick="openSearch()" class="grim-search-btn" aria-label="Search products">SEARCH</button>
       <button onclick="openAuth()" id="acct">ACCOUNT</button>
-      <button onclick="openBag()">CART 🛒 <b id="count">0</b></button>
+      <button onclick="openBag()" class="grim-cart-btn" aria-label="Open cart">BAG <b id="count">0</b></button>
     </div>
   </header>
 
@@ -56,6 +57,12 @@
     <a href="/story.html">STORY</a>
     <a href="https://chat.whatsapp.com/Gl3pHuaCfhz7EMisPU23aA?mode=gi_t" target="_blank" rel="noopener">HOUSE OF GRIM</a>
     <a href="/support.html">CUSTOMER CARE</a>
+    <div class="grim-menu-divider"></div>
+    <a href="/account/grim-orders" id="grimMobileOrders">MY ORDERS</a>
+    <button type="button" id="grimMenuWallet">WALLET</button>
+    <button type="button" id="grimMenuSettings">SETTINGS</button>
+    <button type="button" id="grimMenuAccount">MY ACCOUNT</button>
+    <button type="button" id="grimMenuLogout">LOG OUT</button>
   </nav>
 
   <main>
@@ -208,7 +215,7 @@
 
   <script>window.GRIM_DESIGNS=Array.from({length:26},(_,i)=>`/assets/designs/design-${String(i+1).padStart(2,'0')}.jpeg`);</script>
   <script src="/app.js?v=20261008-2fa1"></script>
-  <script src="/grim-account-nav.js?v=20261016"></script>
+  <script src="/grim-luxury-nav.js?v=20261016b"></script>
   <script src="/grim-frontend-stable.js?v=20261007-final2"></script>
   <script src="/grim-checkout/secure-payments.js?v=20261007-final2"></script>
   <script src="/grim-session/checkout-session.js?v=20261007-final2"></script>
