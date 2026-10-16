@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { grimGlassEmail } from "./grim-orders/liquid-glass-email.js";
 import crypto from "crypto";
 import { OAuth2Client } from "google-auth-library";
 
@@ -69,13 +70,13 @@ export function installGrimV6(app, { supabase, persistentAuth } = {}) {
         from:process.env.TWO_FACTOR_FROM_EMAIL,
         to:[to],
         subject,
-        html:`<div style="background:#090909;color:#eee;padding:32px;font-family:Arial,sans-serif">
-          <div style="letter-spacing:3px;font-weight:700">GRIM</div>
-          <h2>${heading}</h2>
-          <p>${text}</p>
-          <div style="font-size:34px;letter-spacing:8px;font-weight:800">${code}</div>
-          <p style="color:#aaa">This code expires in 10 minutes. If you did not request this, you can ignore this email.</p>
-        </div>`
+        html: grimGlassEmail({
+          eyebrow: 'GRIM / ACCOUNT SECURITY',
+          title: heading === 'Verify your sign-in' ? 'YOUR ACCESS AWAITS.' : 'RESTORE YOUR ACCESS.',
+          body: text,
+          details: [['YOUR PRIVATE CODE', String(code)]],
+          footerNote: 'Expires in 10 minutes. Never share this code. If you did not request it, ignore this message.'
+        })
       })
     });
     if(!r.ok){
