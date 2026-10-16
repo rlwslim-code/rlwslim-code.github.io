@@ -1,0 +1,20 @@
+/* GRIM Bloodline x Abyss — liquid glass. CSS-only, respects reduced motion. */
+:root{--grim-ink:#09090e;--grim-veil:#f3eff5;--grim-abyss:#235fbd;--grim-blood:#9e1e50}
+body{background:#09090e;color:var(--grim-veil)}
+.page-head{background:radial-gradient(ellipse at 85% 0%,#14325c88,transparent 54%),radial-gradient(ellipse at 0% 100%,#66133566,transparent 60%),#0d0a12!important;border-bottom:1px solid #754b7160!important}
+.page-head .eyebrow,.page-head h1,.page-head .page-title{color:#f5eff8!important;text-shadow:0 1px 24px #315db830!important}
+.page-head p{color:#c9c2d2!important}
+.shop-tools,.category-strip{background:linear-gradient(145deg,#14121c,#101b2a)!important;border:1px solid #6b53786b!important;box-shadow:0 16px 45px #0008!important;border-radius:20px!important}
+.shop-tools input,.shop-tools select{background:#14111e!important;color:#f3eff5!important;border:1px solid #655779!important;border-radius:12px!important;min-height:48px}
+.shop-tools input::placeholder{color:#a8a0b5!important}
+.shop-tools select option{background:#17121d;color:#fff}
+.category-strip button,.category-strip a{background:#151521!important;color:#e8e2f2!important;border:1px solid #685578!important}
+.category-strip button.active,.category-strip button[aria-pressed=true]{background:linear-gradient(110deg,#6c173e,#1b4d96)!important;color:#fff!important}
+/* Animated liquid appears under a pressed control and fills it. */
+button,.btn,a.button,.category-strip button{position:relative;isolation:isolate;overflow:hidden;transition:transform .23s ease,border-color .23s ease,box-shadow .23s ease}
+button::before,.btn::before,a.button::before,.category-strip button::before{content:"";position:absolute;z-index:-1;inset:-25%;border-radius:40%;background:radial-gradient(ellipse at 25% 45%,#a51e62dd,transparent 49%),radial-gradient(ellipse at 75% 55%,#1c6ccecc,transparent 53%);transform:translateX(-115%) rotate(-18deg);opacity:0;pointer-events:none}
+button:active,.btn:active,a.button:active,.category-strip button:active{transform:scale(.98);box-shadow:0 0 0 1px #467dd888,0 5px 25px #a21b4740}
+button:active::before,.btn:active::before,a.button:active::before,.category-strip button:active::before{animation:grim-liquid-fill .72s cubic-bezier(.2,.8,.2,1) both}
+@keyframes grim-liquid-fill{0%{opacity:.15;transform:translateX(-115%) rotate(-18deg)}45%{opacity:.85;transform:translateX(-18%) rotate(6deg)}100%{opacity:.65;transform:translateX(0) rotate(0)}}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #5d9eff!important;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){button,.btn,a.button{transition:none!important}button::before,.btn::before,a.button::before{animation:none!important;opacity:0!important}}
