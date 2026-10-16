@@ -40,6 +40,11 @@ export function installGrimEmailWorker(app,{supabase,env=process.env}={}) {
         message=grimStatusEmail({templateKey:job.email_type,orderId:order.id,customerName:order.name});
       }
     } catch {return res.status(409).json({error:'UNSUPPORTED_TEMPLATE'});}
+    // Explicit no-send diagnostic: validates route, auth, DB, order and template.
+    // No outbox update or Resend call occurs.
+    if (req.body?.dry_run === true) {
+      return res.json({ok:true,dry_run:true,outbox_id:job.id,order_id:order.id,ready_to_send:true});
+    }
     const {data:claimed,error:claimError} = await supabase.from('grim_transactional_email_outbox')
       .update({status:'processing',attempts:job.attempts+1})
       .eq('id',job.id).eq('status','pending').eq('attempts',job.attempts).select('id');
