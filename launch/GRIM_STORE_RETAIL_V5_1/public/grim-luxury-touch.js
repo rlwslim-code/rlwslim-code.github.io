@@ -1,2 +1,1 @@
-/* GRIM touch feedback. Does not intercept navigation, checkout, session, or wallet actions. */
-(()=>{'use strict';const target='button,a,[role="button"]';let timer;function pulse(e){const node=e.target.closest?.(target);if(!node||node.disabled||node.getAttribute('aria-disabled')==='true')return;node.classList.add('grim-touch-feedback','grim-touch-active');clearTimeout(node._grimTouchTimer);node._grimTouchTimer=setTimeout(()=>node.classList.remove('grim-touch-active'),330)}document.addEventListener('pointerdown',pulse,{passive:true});document.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')pulse(e)});})();
+/* Deprecated tap-feedback effect disabled. Use grim-fluid-v3.js. */

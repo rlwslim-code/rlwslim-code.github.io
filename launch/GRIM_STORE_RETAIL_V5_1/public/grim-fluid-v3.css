@@ -1,0 +1,8 @@
+/* GRIM V3: suppress legacy rectangular press feedback without altering navigation. */
+#grim-fluid-v3-canvas{pointer-events:none!important;background:transparent!important;border-radius:0!important;}
+.grim-liquid-surface{display:none!important;}
+.grim-touch-feedback::after,.grim-touch-feedback.grim-touch-active::after{content:none!important;display:none!important;}
+.grim-touch-feedback.grim-touch-active{box-shadow:inherit!important;}
+.grim-liquid-host{overflow:visible;}
+html{-webkit-tap-highlight-color:transparent;}
+@media(prefers-reduced-motion:reduce){#grim-fluid-v3-canvas{display:none!important;}}
