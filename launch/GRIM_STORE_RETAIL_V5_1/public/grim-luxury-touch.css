@@ -1,0 +1,15 @@
+
+/* GRIM luxury interaction layer: progressive enhancement, no payment or auth mutation */
+:root{--grim-touch-gold:#c9a45b;--grim-touch-veil:#f4eee2}
+html{-webkit-tap-highlight-color:transparent;scroll-behavior:smooth}
+button,a,[role="button"],input,select,textarea{touch-action:manipulation}
+button,a,[role="button"]{transition:color .22s ease,background-color .22s ease,border-color .22s ease,box-shadow .24s ease,transform .22s cubic-bezier(.2,.8,.2,1),opacity .22s ease}
+button:not(:disabled):active,a:active,[role="button"]:active{transform:scale(.975)}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,[role="button"]:focus-visible{outline:2px solid var(--grim-touch-gold)!important;outline-offset:4px}
+.grim-touch-feedback{position:relative;isolation:isolate}
+.grim-touch-feedback::after{content:"";position:absolute;inset:-3px;border:1px solid rgba(215,179,106,.42);border-radius:inherit;pointer-events:none;opacity:0;transform:scale(.97);transition:opacity .28s ease,transform .28s ease}
+.grim-touch-feedback.grim-touch-active::after{opacity:1;transform:scale(1.035)}
+.grim-touch-feedback.grim-touch-active{box-shadow:0 0 0 1px rgba(215,179,106,.14),0 8px 24px rgba(154,106,30,.12)}
+#grimMobileMenu a,#grimMobileMenu button,.grim-mobile-menu a,.grim-mobile-menu button{min-height:46px;display:flex;align-items:center}
+@media (hover:hover){a:hover,button:not(:disabled):hover{filter:brightness(1.12)}.grim-touch-feedback:hover{box-shadow:0 0 0 1px rgba(215,179,106,.17)}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
