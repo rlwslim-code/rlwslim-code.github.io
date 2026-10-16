@@ -1,0 +1,24 @@
+/* GRIM Liquid Glass — Bloodline x Abyss. Additive design layer; no payment or auth modifications. */
+:root{--gg-obsidian:#080a11;--gg-veil:#f2f3fa;--gg-red:#aa163e;--gg-blue:#1956c9;--gg-edge:rgba(199,215,255,.20);--gg-glass:rgba(18,24,40,.70)}
+html{color-scheme:dark}body{background-color:var(--gg-obsidian);color:var(--gg-veil)}
+body::before{content:"";position:fixed;inset:-30%;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at 23% 30%,rgba(133,20,59,.16),transparent 36%),radial-gradient(ellipse at 76% 68%,rgba(22,73,171,.17),transparent 37%);filter:blur(40px);animation:ggAmbient 18s ease-in-out infinite alternate}
+@keyframes ggAmbient{to{transform:translate3d(3%,-2%,0) scale(1.07)}}
+/* Glass materials: selectors cover common storefront, checkout and account surfaces without changing layout */
+:is(header,.site-header,.topbar,.navbar,nav,.drawer,.cart-drawer,.cart-panel,.modal .box,.modal-content,.panel,.account-panel,.account-card,.order-card,.product-card,.product,.checkout-card,.checkout-step,.wallet-card,.settings-card,.filter-panel,.filter-bar,.menu-panel,.dropdown-menu,.glass-card){
+  background-color:var(--gg-glass);border-color:var(--gg-edge);-webkit-backdrop-filter:blur(22px) saturate(150%);backdrop-filter:blur(22px) saturate(150%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12),inset 0 -1px 0 rgba(35,73,139,.08),0 12px 35px rgba(0,0,0,.24)}
+:is(.modal .box,.modal-content,.panel,.account-panel,.account-card,.order-card,.product-card,.checkout-card,.checkout-step,.wallet-card,.settings-card,.glass-card){border-radius:20px}
+:is(button,.btn,[role="button"],a.button,input[type="submit"],.filter-chip,.chip){-webkit-tap-highlight-color:transparent;transition:transform .32s cubic-bezier(.2,.8,.2,1),box-shadow .32s,border-color .32s,background-color .32s;touch-action:manipulation}
+:is(button,.btn,[role="button"],a.button,input[type="submit"],.filter-chip,.chip):not(:disabled):active{transform:scale(.975)}
+:is(button,.btn,[role="button"],a.button,input[type="submit"],.filter-chip,.chip):focus-visible{outline:2px solid #87aaff;outline-offset:3px}
+:is(input,select,textarea){border-color:rgba(166,192,255,.28);background-color:rgba(12,17,31,.75);color:var(--gg-veil);border-radius:13px}
+:is(input,select,textarea):focus{outline:1px solid rgba(76,128,240,.7);box-shadow:0 0 0 3px rgba(42,92,193,.14)}
+:is(h1,h2,h3,.heading,.title){text-shadow:0 1px 22px rgba(55,89,163,.12)}
+:is(.muted,.subtitle,.description,small){color:#b9c1d3}
+/* Each activated element gets a borderless, elliptical refracted glow, never a rectangle. */
+.gg-touched{position:relative;isolation:isolate}
+.gg-touched::after{content:"";position:absolute;inset:-5px;z-index:-1;pointer-events:none;border-radius:inherit;background:radial-gradient(ellipse at var(--gg-x,50%) var(--gg-y,50%),rgba(53,121,246,.25),rgba(173,23,72,.16) 35%,transparent 74%);filter:blur(13px);animation:ggFade .9s ease-out both}
+@keyframes ggFade{0%{opacity:0;transform:scale(.85)}20%{opacity:1}100%{opacity:0;transform:scale(1.08)}}
+#grim-glass-fluid{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;pointer-events:none!important;z-index:2147483000!important;background:transparent!important;border:0!important;box-shadow:none!important}
+@media(prefers-reduced-motion:reduce){body::before{animation:none}:is(button,.btn,[role="button"],a.button,input[type="submit"],.filter-chip,.chip){transition:none}.gg-touched::after{animation:none;opacity:0}#grim-glass-fluid{display:none!important}}
+@media(max-width:680px){:is(.modal .box,.modal-content,.panel,.account-card,.order-card,.product-card,.checkout-card,.wallet-card){border-radius:18px}}
