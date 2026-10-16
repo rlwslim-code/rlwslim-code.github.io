@@ -1,0 +1,58 @@
+--- a/public/checkout2.js
++++ b/public/checkout2.js
+@@ -455,22 +455,21 @@
+     const d = document.createElement("div");
+     d.className = "pending-item";
+     d.textContent = `${result.reference} · ${result.status}`;
++    d.setAttribute("role", "group");
++    d.setAttribute("aria-label", "Recovery for existing payment");
+     const b = document.createElement("button");
+     b.type = "button";
+     b.textContent = "CHECK EXISTING PAYMENT";
+     b.onclick = () => check(result.reference);
+     d.append(b);
+-    if (result.authorizationUrl) {
+-      try {
+-        const u = new URL(result.authorizationUrl);
+-        if (u.protocol === "https:" && u.hostname === "checkout.paystack.com") {
+-          const resume = document.createElement("button");
+-          resume.type = "button";
+-          resume.textContent = mode === "test" ? "RESUME THIS TEST PAYMENT" : "RESUME THIS PAYMENT";
+-          resume.onclick = () => location.assign(u.href);
+-          d.append(resume);
+-        }
+-      } catch {}
++    // Do not offer an old Paystack authorization URL as a resume action.
++    // Even URLs previously returned by Paystack can expire or become unusable.
++    // Always verify the reference server-side before a new payment can be offered.
++    if (result.method !== "wallet") {
++      const note = document.createElement("p");
++      note.className = "grim-recovery-safety-note";
++      note.textContent = "An old payment link may no longer work. Check this reference first; GRIM will not start a second charge automatically.";
++      d.append(note);
+     }
+     if (result.method === "wallet") {
+       const retry = document.createElement("button");
+@@ -484,6 +483,13 @@
+       cancel.onclick=async()=>{try{const r=await api('wallet/cancel',{reference:result.reference});if(r.status==='paid')return paid(r);pending=null;storage.remove(ownerKey());shippingToken=null;$('recovery').hidden=true;await load();}catch(e){say(e.message,true);}};
+       d.append(cancel);
+     }
++    if (result.method !== "wallet") {
++      const shop = document.createElement("a");
++      shop.href = "/shop.html";
++      shop.className = "grim-recovery-return";
++      shop.textContent = "RETURN TO SHOP";
++      d.append(shop);
++    }
+     $("pending").append(d);
+     if (result.quote) drawQuote(result.quote);
+     $("payButton").disabled = true;
+@@ -499,7 +505,7 @@
+         recovery(result);
+         say(
+           result.message ||
+-            `Payment status: ${result.providerStatus || result.status}. Resume or check the same reference.`,
++            `Payment status: ${result.providerStatus || result.status}. Keep this reference; verify with GRIM before retrying.`,
+         );
+       }
+     } catch (e) {
