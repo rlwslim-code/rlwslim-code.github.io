@@ -1,10 +1,12 @@
-/* GRIM compact recovery panel; payment controls remain owned by checkout2.js. */
-#recovery:not([hidden]){max-width:680px;margin:clamp(20px,5vw,44px) auto;padding:clamp(20px,5vw,34px);border-radius:26px;background:linear-gradient(125deg,rgba(67,18,45,.24),rgba(10,27,63,.42));border:1px solid rgba(149,158,212,.35);box-shadow:0 15px 46px rgba(0,0,0,.3);color:#f7f4fc}
-#recovery>h2{font-size:clamp(1.35rem,5vw,2rem);line-height:1.12;margin:0 0 12px;letter-spacing:.08em}
-#recovery>p{font-size:clamp(.95rem,3.6vw,1.05rem);line-height:1.45;color:#c6cbdf;margin:0 0 24px}
-#recovery .pending-item{display:flex;flex-direction:column;gap:16px;overflow-wrap:anywhere;font-size:.88rem;line-height:1.45;letter-spacing:.02em}
-#recovery .pending-item button{min-height:50px;border-radius:999px;background:linear-gradient(115deg,rgba(125,19,63,.85),rgba(28,65,145,.85));color:#fff;border:1px solid rgba(201,206,255,.45);font-weight:700;letter-spacing:.07em}
-#recovery .pending-item .grim-recovery-return{align-self:center;color:#cfd7f5;text-underline-offset:5px;text-align:center;margin:4px 0}
-#recovery .grim-recovery-support{display:block;text-align:center;color:#cfd7f5;margin:16px 0 0;font-size:.9rem;text-underline-offset:4px}
-#recovery .pending-item button:focus-visible,#recovery a:focus-visible{outline:2px solid #b9c7ff;outline-offset:3px}
-#recovery .grim-recovery-assist{display:none!important}
+/* Payment recovery: short, focused, safe. Existing verification handlers remain intact. */
+body.grim-recovery-active #status{font-size:0!important;min-height:0!important;margin:0!important;padding:0!important;line-height:0!important}
+body.grim-recovery-active #status::before{content:'An unfinished payment needs verification.';display:block;font-size:clamp(14px,3.7vw,17px);line-height:1.5;color:#bfc6d7;margin:0 0 20px}
+#recovery:not([hidden]){max-width:640px;margin:18px auto 32px;padding:clamp(20px,5vw,30px);border:1px solid rgba(117,129,201,.46);border-radius:27px;background:radial-gradient(ellipse at 15% 6%,rgba(117,12,56,.32),transparent 56%),radial-gradient(ellipse at 90% 75%,rgba(27,65,141,.28),transparent 60%),#0b0c18;color:#f8f7fb;box-shadow:0 18px 48px #0006}
+#recovery>h2{font-size:clamp(22px,5.1vw,30px);line-height:1.12;letter-spacing:.075em;margin:0 0 12px}
+#recovery>p{margin:0 0 20px!important;font-size:clamp(15px,3.6vw,17px);line-height:1.45;color:#c4cadd}
+#recovery .pending-item{display:flex;flex-direction:column;gap:16px;overflow-wrap:anywhere;line-height:1.4;color:#c6cce0}
+#recovery .pending-item button{min-height:52px!important;border-radius:999px!important;background:linear-gradient(113deg,#761139,#303f89)!important;border:1px solid #8f8ab8!important;color:white!important;font-weight:700;letter-spacing:.06em}
+#recovery .grim-recovery-return,#recovery .grim-recovery-support{display:block;align-self:center;margin:8px auto 0;color:#d8dff6;text-align:center;letter-spacing:.075em;text-decoration:underline;text-underline-offset:5px}
+#recovery .grim-recovery-assist,#recovery .grim-recovery-safety-note{display:none!important}
+#recovery .grim-ref-compact{font-size:14px;letter-spacing:.02em;color:#bfc6d8}
+@media (prefers-reduced-motion:reduce){#recovery *{transition:none!important;animation:none!important}}

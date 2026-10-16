@@ -1,36 +1,33 @@
-/* GRIM compact payment recovery UI. Presentation-only: never changes payment status. */
-(() => {
-  'use strict';
-  const area = document.getElementById('recovery');
-  if (!area) return;
-  function compact() {
-    // Remove the verbose duplicate card injected by earlier releases.
-    area.querySelectorAll('.grim-recovery-assist').forEach(el => el.remove());
-    const title = area.querySelector(':scope > h2');
-    if (title) title.textContent = 'PAYMENT STATUS';
-    const intro = area.querySelector(':scope > p');
-    if (intro) intro.textContent = 'Verify this payment before trying again.';
-    const pending = document.getElementById('pending');
-    if (!pending) return;
-    const detail = pending.querySelector('.pending-item');
-    if (!detail) return;
-    const button = [...detail.querySelectorAll('button')].find(el => el.textContent.trim() === 'CHECK EXISTING PAYMENT');
-    if (button) button.textContent = 'VERIFY PAYMENT';
-    detail.querySelectorAll('.grim-recovery-safety-note').forEach(el => el.remove());
-    // Keep one return-to-shop link from the original checkout, never duplicate.
-    const links = [...detail.querySelectorAll('.grim-recovery-return')];
-    links.slice(1).forEach(el => el.remove());
-    let support = area.querySelector('.grim-recovery-support');
-    if (!support) {
-      support = document.createElement('a');
-      support.className = 'grim-recovery-support';
-      support.href = '/support.html';
-      support.textContent = 'Need help? Contact GRIM';
-      area.appendChild(support);
-    }
-  }
-  // Checkout renders the pending result dynamically; observe child changes only.
-  const observer = new MutationObserver(() => { observer.disconnect(); compact(); observer.observe(area, {childList:true,subtree:true}); });
-  compact();
-  observer.observe(area, {childList:true,subtree:true});
+/* GRIM concise recovery display. Never changes payment data or calls payment APIs. */
+(()=>{'use strict';
+ const section=document.getElementById('recovery');if(!section)return;
+ const status=document.getElementById('status');
+ let busy=false;
+ function render(){
+  if(busy)return;busy=true;
+  try{
+   const active=!section.hidden;
+   document.body.classList.toggle('grim-recovery-active',active);
+   if(!active)return;
+   const title=section.querySelector(':scope > h2');if(title&&title.textContent!=='PAYMENT STATUS')title.textContent='PAYMENT STATUS';
+   const desc=section.querySelector(':scope > p');if(desc&&desc.textContent!=='Verify before paying again.')desc.textContent='Verify before paying again.';
+   section.querySelectorAll('.grim-recovery-assist').forEach(el=>el.remove());
+   const pending=section.querySelector('#pending');if(!pending)return;
+   const row=pending.querySelector('.pending-item');if(!row)return;
+   row.querySelectorAll('.grim-recovery-safety-note').forEach(el=>el.remove());
+   const verify=[...row.querySelectorAll('button')].find(b=>/CHECK EXISTING PAYMENT|VERIFY PAYMENT/i.test(b.textContent||''));
+   if(verify)verify.textContent='VERIFY PAYMENT';
+   [...row.querySelectorAll('.grim-recovery-return')].slice(1).forEach(el=>el.remove());
+   let help=section.querySelector('.grim-recovery-support');
+   if(!help){help=document.createElement('a');help.href='/support.html';help.className='grim-recovery-support';help.textContent='CONTACT GRIM';section.appendChild(help)}
+   // Shorten only the visible reference; preserve the actual value in the DOM and its click handlers.
+   [...row.childNodes].filter(n=>n.nodeType===Node.TEXT_NODE).forEach(n=>{
+     if(n.__grimFormatted)return;
+     const s=n.textContent||'';const m=s.match(/GRIM2-[a-z0-9-]{26,}/i);
+     if(m){const span=document.createElement('span');span.className='grim-ref-compact';span.textContent=`Reference ${m[0].slice(0,12)}…${m[0].slice(-6)}`;span.title=m[0];span.setAttribute('aria-label',`Payment reference ${m[0]}`);n.replaceWith(span)}
+   });
+  }finally{busy=false}
+ }
+ const ob=new MutationObserver(()=>{ob.disconnect();render();ob.observe(section,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']})});
+ render();ob.observe(section,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
 })();
