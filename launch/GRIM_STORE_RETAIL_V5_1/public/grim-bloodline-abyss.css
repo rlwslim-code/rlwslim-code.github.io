@@ -1,0 +1,23 @@
+/* GRIM Bloodline x Abyss refinement — visual only. */
+:root{--grim-blood:#8d2349;--grim-abyss:#2568b5;--grim-veil:#f5f2f7;--grim-muted:#b9bfcc;--grim-liquid:linear-gradient(115deg,#45152e 0%,#8d2349 37%,#20224c 65%,#2568b5 100%)}
+html{color-scheme:dark}
+body{background:#0b090f;color:var(--grim-veil)}
+.site-header{border-bottom:1px solid rgba(105,70,139,.38)!important}
+.site-header .hamb,.site-header .actions button{color:#e4e6f1!important}
+.mobile-nav.open{background:linear-gradient(150deg,#100d18,#111121 75%)!important;border-bottom:1px solid #3b325c!important}
+.mobile-nav a:active,.mobile-nav button:active{background:linear-gradient(90deg,#65183255,#2459a655)!important}
+/* Restore contrast on dark shop headings and cart summary */
+#bag .bag-total,#bag .bag-total *,#bag [class*="subtotal"],#bag [class*="subtotal"] *{color:#f4edf5!important}
+#bag .grim-checkout-action{background:var(--grim-liquid)!important;color:#fff!important;border:1px solid #6c649b!important}
+#bag .continue{color:#c8d8f2!important}
+#bag button:not(.grim-checkout-action){border-color:#67516c!important}
+#bag .grim-cart-kicker{color:#b3c8e8!important}
+/* Shared interactive elements: subtle liquid glass rather than gold flashes */
+.grim-touch-feedback.grim-touch-active{box-shadow:0 0 0 1px #a1356477,0 7px 28px #194f9955!important}
+.grim-touch-feedback::after{border:1px solid #4a87c799!important}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #5794d7!important;outline-offset:3px}
+.retail-hero .cta{border:1px solid #70486f!important;background:var(--grim-liquid)!important;color:#fff!important}
+/* Shop content remains readable even where older theme applies dim text */
+.shop-hero h1,.shop-hero p,.shop-hero .eyebrow,.shop-intro h1,.shop-intro p{color:#f1edf5!important}
+@media (prefers-reduced-motion:no-preference){.grim-touch-feedback.grim-touch-active::after{transition:opacity .25s ease,transform .25s ease}}
+@media(max-width:800px){#bag{background:linear-gradient(165deg,#15101b,#0b0b12 65%)!important}}
