@@ -1,0 +1,16 @@
+/* GRIM CONTROL — Bloodline x Abyss: admin-only visual skin.
+   Scoped visual overrides. No admin permissions/API/business logic modified. */
+:root{--gold:#aeb9db;--gold-soft:#f4f2fa;--crimson:#a21b50;--crimson-bright:#e23573;--blue:#3867ce;--panel:#101425;--panel-2:#15192a;--line:rgba(171,191,240,.22)}
+body{background:radial-gradient(ellipse at 13% 15%,rgba(147,18,73,.25),transparent 43%),radial-gradient(ellipse at 85% 31%,rgba(27,65,150,.25),transparent 49%),#070a13;color:#f7f6fb}
+/* The live glow moves behind glass without blocking any control. */
+body::before{content:"";position:fixed;inset:-35%;pointer-events:none;z-index:0;opacity:.24;background:radial-gradient(ellipse at 25% 60%,rgba(210,25,90,.46),transparent 40%),radial-gradient(ellipse at 75% 30%,rgba(47,104,232,.43),transparent 38%);filter:blur(48px);animation:grimAdminAurora 20s ease-in-out infinite alternate}
+@keyframes grimAdminAurora{0%{transform:translate3d(-4%,1%,0) rotate(-5deg)}50%{transform:translate3d(5%,-4%,0) rotate(7deg)}100%{transform:translate3d(-3%,5%,0) rotate(-3deg)}}
+body>*,body .admin-shell,body .admin-layout{position:relative}
+:is(.login-panel,.panel,.card,.stat-card,.metric-card,.sidebar,.topbar,.admin-card,.modal-content,.settings-card,.notification-card,.grim-push-admin-card){background:linear-gradient(130deg,rgba(27,31,55,.85),rgba(13,16,34,.84))!important;box-shadow:inset 0 1px rgba(244,249,255,.14),0 18px 55px rgba(0,0,0,.24),0 0 34px rgba(40,80,170,.055)!important;border-color:rgba(156,178,229,.23)!important;backdrop-filter:blur(18px) saturate(145%);-webkit-backdrop-filter:blur(18px) saturate(145%)}
+:is(button,.btn,[role="button"],a,input,select,textarea){-webkit-tap-highlight-color:transparent;transition:box-shadow .22s ease,transform .22s ease,border-color .22s ease,background-color .22s ease}
+:is(button,.btn,[role="button"]):not(:disabled):active{transform:scale(.985);box-shadow:0 0 19px rgba(70,113,232,.32),0 0 27px rgba(185,25,76,.23)!important}
+:is(button,.btn,a,input,select,textarea):focus-visible{outline:2px solid #a6c7ff!important;outline-offset:3px}
+:is(.primary-btn,button[type="submit"],.btn-primary){background:linear-gradient(110deg,#6a183f,#232c68,#2651a3)!important;color:#fff!important;border:1px solid rgba(173,200,255,.45)!important}
+:is(.brand-mark,.logo,h1,h2,h3){text-shadow:0 1px 13px rgba(95,126,206,.08)}
+.brand-mark{font-family:Georgia,'Times New Roman',serif;letter-spacing:.24em}
+@media(prefers-reduced-motion:reduce){body::before{animation:none!important}*,*::before,*::after{transition-duration:.01ms!important}}
