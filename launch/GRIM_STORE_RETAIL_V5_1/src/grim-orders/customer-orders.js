@@ -12,9 +12,20 @@ export function classifyOrder(order) {
 export function installGrimCustomerOrders(app, {supabase} = {}) {
   app.get('/api/account/order-history', async (req, res) => {
     res.setHeader('Cache-Control', 'private, no-store');
-    const accountId = String(req.session?.user?.id || '').trim();
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(accountId)) return res.status(401).json({error:'SIGN_IN_REQUIRED'});
+    const sessionUser=req.session?.user;
+    if (!sessionUser?.email) return res.status(401).json({error:'SIGN_IN_REQUIRED'});
     if (!supabase) return res.status(503).json({error:'ORDER_HISTORY_UNAVAILABLE'});
+    let accountId=String(sessionUser.id || '').trim();
+    const isUuid=value=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+    // Legacy numeric IDs are never accepted as order owners. Resolve using
+    // the verified server-side session email, not a browser-supplied identity.
+    if (!isUuid(accountId)) {
+      const {data:account,error:accountError}=await supabase.from('customers')
+        .select('id').eq('email',String(sessionUser.email).trim().toLowerCase()).maybeSingle();
+      if(accountError) return res.status(503).json({error:'ACCOUNT_LOOKUP_UNAVAILABLE'});
+      if(!account?.id || !isUuid(String(account.id))) return res.status(403).json({error:'ACCOUNT_PROFILE_UNAVAILABLE'});
+      accountId=String(account.id);
+    }
     try {
       // Resolve the signed-in website account to its uniquely matching profile on the server.
       const {data:profileId,error:mapError}=await supabase.rpc('grim_profile_id_for_account',{p_account_id:accountId});

@@ -485,8 +485,25 @@ app.get("/api/market", (req, res) => {
 });
 
 app.get("/api/me", (req, res) => {
-  res.setHeader("Cache-Control", "no-store");
-  res.json(req.session?.user || null);
+  res.setHeader("Cache-Control", "private, no-store");
+  res.setHeader("Vary", "Cookie");
+  // The V6 middleware above restores a verified customer from the signed cookie.
+  // Return one consistent account shape to every same-origin GRIM page.
+  const user = req.session?.user;
+  if (!user?.email) return res.json(null);
+  return res.json({id:user.id,name:user.name,firstName:user.firstName,
+    lastName:user.lastName,email:user.email,phone:user.phone});
+});
+
+// Safe, read-only session health endpoint; never expose cookies or secrets.
+app.get('/api/auth/session-status', (req,res) => {
+  res.setHeader('Cache-Control','private, no-store');
+  res.setHeader('Vary','Cookie');
+  const user=req.session?.user;
+  res.json({authenticated:!!user?.email,
+    accountType: user?.email ? (/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(String(user.id||'')) ? 'supabase' : 'legacy') : 'none',
+    accountServicesConfigured:!!grimSupabase,
+    sessionSecretConfigured:!!process.env.SESSION_SECRET});
 });
 
 app.get("/api/google-config", (_req, res) => {
