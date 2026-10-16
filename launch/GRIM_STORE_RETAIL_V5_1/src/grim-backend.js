@@ -23,6 +23,11 @@ import { installGrimV7 } from "./grim-v7.js";
 import { installGrimV8 } from "./grim-v8.js";
 import { installGrimPush } from "./grim-push.js";
 import geoapifyAddress from "./geoapify-address.js";
+// GRIM Stage 7 — additive order experience, disabled until reviewed.
+import { installGrimCustomerOrders } from "./grim-orders/customer-orders.js";
+import { installGrimOrdersPage } from "./grim-orders/orders-page.js";
+import { installGrimEmailWorker } from "./grim-orders/email-worker.js";
+import { installGrimAdminOrders } from "./grim-orders/admin-orders.js";
 
 dotenv.config();
 
@@ -215,6 +220,29 @@ const persistentAuth = {
 installGrimV6(app, { supabase: grimSupabase, persistentAuth });
 installGrimV7(app, { supabase: grimSupabase });
 installGrimControl(app);
+
+// Feature flags default OFF: existing checkout and production routes remain unchanged.
+if (process.env.GRIM_STAGE7_ORDERS_ENABLED === 'true') {
+  installGrimCustomerOrders(app, {supabase: grimSupabase});
+  installGrimOrdersPage(app);
+}
+if (process.env.GRIM_STAGE7_EMAIL_WORKER_ENABLED === 'true') {
+  installGrimEmailWorker(app, {supabase: grimSupabase});
+}
+if (process.env.GRIM_STAGE7_ADMIN_ORDERS_ENABLED === 'true') {
+  // Existing GRIM admin session is server-created; never trust browser-provided flags.
+  const requireGrimAdmin = (req,res,next) => {
+    if (req.session?.admin !== true) return res.status(401).json({error:'ADMIN_REQUIRED'});
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      const origin = req.get('origin');
+      const expected = `${req.protocol}://${req.get('host')}`;
+      if (!origin || origin !== expected) return res.status(403).json({error:'INVALID_ORIGIN'});
+    }
+    next();
+  };
+  installGrimAdminOrders(app,{supabase:grimSupabase,requireAdmin:requireGrimAdmin});
+}
+
 
 const dataDir =
   process.env.DATA_DIR ||

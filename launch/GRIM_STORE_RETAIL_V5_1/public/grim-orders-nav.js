@@ -1,0 +1,2 @@
+// Optional GRIM account link; include only after Stage 7 feature activation.
+(async()=>{try{const r=await fetch('/api/me',{credentials:'same-origin',cache:'no-store'});const u=r.ok?await r.json():null;if(!u?.email)return;for(const selector of ['.nav','#mobileNav']){const nav=document.querySelector(selector);if(nav&&!nav.querySelector('a[href="/account/grim-orders"]')){const a=document.createElement('a');a.href='/account/grim-orders';a.textContent='MY ORDERS';nav.append(a)}}}catch{}})();

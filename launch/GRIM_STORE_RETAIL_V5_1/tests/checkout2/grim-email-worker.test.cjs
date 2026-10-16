@@ -1,0 +1,2 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');
+test('email template escapes untrusted content and retains GRIM palette',async()=>{const {orderEmailHtml,emailReady}=await import('../../src/grim-orders/email-worker.js');const html=orderEmailHtml({orderId:'7',customerName:'<script>alert(1)</script>',amount:1000});assert.doesNotMatch(html,/<script>/);assert.match(html,/&lt;script&gt;/);assert.match(html,/#090a0f/);assert.match(html,/RAV’KAEL/);assert.equal(emailReady({}),false);});
