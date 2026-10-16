@@ -149,10 +149,16 @@ export function installGrimV6(app, { supabase, persistentAuth } = {}) {
 
   // Restore the signed-in customer when Vercel gives this request a fresh serverless instance.
   app.use(async (req,res,next)=>{
-    if(!supabase || req.session?.user?.email || !persistentAuth?.readEmail) return next();
+    if(!supabase || !persistentAuth?.readEmail) return next();
+    // A verified persistent GRIM cookie takes precedence over a stale legacy Express session.
+    // Never use an email supplied by the browser as proof of identity.
     try{
       const email=cleanEmail(persistentAuth.readEmail(req));
       if(!email) return next();
+      if (req.session?.user?.email && cleanEmail(req.session.user.email) !== email) {
+        // Conflicting authenticated identities: do not reuse the old session.
+        delete req.session.user;
+      }
       const user=await customerByEmail(email);
       if(!user || ["disabled","deactivated","suspended","deleted"].includes(String(user.account_status||"").toLowerCase())){
         persistentAuth.clear?.(res);

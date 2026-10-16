@@ -1,7 +1,7 @@
 (()=>{
 "use strict";
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
-const api=async(u,o={})=>{const r=await fetch(u,{credentials:"same-origin",headers:{"Content-Type":"application/json",...(o.headers||{})},...o});const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error||"Request failed");return b};
+const api=async(u,o={})=>{const r=await fetch(u,{credentials:"same-origin",headers:{"Content-Type":"application/json",...(o.headers||{})},...o});const b=await r.json().catch(()=>({}));if(!r.ok){const err=new Error(b.error||"Request failed");err.status=r.status;throw err;}return b};
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 const css=document.createElement("style");
@@ -66,7 +66,7 @@ async function loadWallet(){
   const w=await api("/api/v8/wallet"),accounts=Array.isArray(w.accounts)?w.accounts:[];
   const preferred=accounts.find(x=>x.currency===market)||accounts.find(x=>x.currency==="NGN")||accounts[0];
   $(".g7-wallet-balance").textContent=preferred?minorMoney(preferred.balance_minor,preferred.currency):money(0,market);
- }catch{if($(".g7-wallet-balance"))$(".g7-wallet-balance").textContent="SIGN IN"}
+ }catch(e){if($(".g7-wallet-balance"))$(".g7-wallet-balance").textContent=e.status===401?"SIGN IN":"WALLET UNAVAILABLE"}
 }
 
 async function openWallet(){
@@ -88,7 +88,7 @@ async function openWallet(){
   body.querySelector(".fund").onclick=()=>openWalletFunding(m);
   body.querySelector(".refresh").onclick=()=>{m.remove();openWallet()};loadWallet();
  }catch(e){
-  if(/sign in/i.test(e.message||"")){body.innerHTML='<div class="g7-wallet-error">Sign in to open your GRIM Wallet.</div><div class="g7-choice"><button class="signin" type="button">SIGN IN</button></div>';body.querySelector(".signin").onclick=()=>{m.remove();if(typeof openAuth==="function")openAuth();else $("#acct")?.click()}}
+  if(e.status===401){body.innerHTML='<div class="g7-wallet-error">Sign in to open your GRIM Wallet.</div><div class="g7-choice"><button class="signin" type="button">SIGN IN</button></div>';body.querySelector(".signin").onclick=()=>{m.remove();if(typeof openAuth==="function")openAuth();else $("#acct")?.click()}}
   else{body.innerHTML=`<div class="g7-wallet-error">${esc(e.message||"Unable to load GRIM Wallet.")}</div><div class="g7-choice"><button class="retry" type="button">TRY AGAIN</button></div>`;body.querySelector(".retry").onclick=()=>{m.remove();openWallet()}}
  }
 }
