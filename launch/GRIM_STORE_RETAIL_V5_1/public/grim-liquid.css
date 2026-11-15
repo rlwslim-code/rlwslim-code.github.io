@@ -1,9 +1,6 @@
-/* GRIM — Living ABYSS blue liquid across entire site, not a glass-button effect.
-   Overlay layout is applied by JS; nothing catches pointer events. */
+/* GRIM living Bloodline × Abyss touch: the entire viewport, no hit-testing. */
 #grim-abyss-fluid-canvas{
-  display:block!important;
-  pointer-events:none!important;
-  background:transparent!important;
-  filter:drop-shadow(0 0 3px rgba(16,101,255,.25));
+  display:block!important;pointer-events:none!important;background:transparent!important;
+  filter:drop-shadow(0 0 3px rgba(21,83,241,.16)) drop-shadow(0 0 3px rgba(216,31,69,.16));
 }
 @media(prefers-reduced-motion:reduce){#grim-abyss-fluid-canvas{display:none!important}}
