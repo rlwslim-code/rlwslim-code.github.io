@@ -1,0 +1,36 @@
+{
+  "currency": "NGN",
+  "effective_price": "launch",
+  "status": "proposed launch list carried forward from prior planning",
+  "categories": {
+    "Tee": {
+      "launch": 25000,
+      "regular": 28000
+    },
+    "Hoodie": {
+      "launch": 45000,
+      "regular": 48000
+    },
+    "Sweat Jacket": {
+      "launch": 32000,
+      "regular": 35000
+    },
+    "Armless": {
+      "launch": 20000,
+      "regular": 25000
+    },
+    "Cap": {
+      "launch": 16000,
+      "regular": 18000
+    },
+    "Beanie": {
+      "launch": 16000,
+      "regular": 18000
+    },
+    "Complete GRIM Outfit": {
+      "launch": 100000,
+      "regular": 105000
+    }
+  },
+  "note": "The existing October catalog has only Hoodies, Tees, Armless and one Complete Outfit. Other product categories require real product records via admin; no phantom products will be created."
+}
