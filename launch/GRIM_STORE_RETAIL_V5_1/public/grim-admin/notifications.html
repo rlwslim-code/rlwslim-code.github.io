@@ -3,37 +3,96 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#0b0b0d" />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta name="theme-color" content="#07080c" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="GRIM Admin" />
   <link rel="manifest" href="/grim-admin/notifications.webmanifest" />
-  <title>GRIM — Order Alerts</title>
-  <style>
-    :root {color-scheme:dark; font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial; background:#0b0b0d; color:#f5f2ed}
-    *{box-sizing:border-box} body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-    main{width:min(560px,100%)} .eyebrow{font-size:12px;letter-spacing:.2em;color:#a9a5a1}h1{font-size:clamp(32px,5vw,50px);letter-spacing:-.05em;margin:12px 0 14px}
-    p{line-height:1.6;color:#c4c0bd} .panel{border:1px solid #333034;border-radius:18px;background:#171719;padding:24px;margin:26px 0}
-    .row{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}button,a.button{border:1px solid #d8d1c5;border-radius:10px;padding:13px 16px;background:#eee7df;color:#111;font-weight:700;font-size:14px;cursor:pointer;text-decoration:none}
-    button.secondary,a.button.secondary{background:transparent;color:#eee7df;border-color:#4b4848}button:disabled{opacity:.45;cursor:default}#status{min-height:40px;color:#d5d1ce;white-space:pre-wrap}
-    .note{font-size:13px}code{font-size:12px;color:#d8cbbc}footer{padding-top:20px;border-top:1px solid #29272a;color:#8f8787;font-size:11px;letter-spacing:.16em}
-  </style>
+  <!-- Existing GRIM Owner Studio visual tokens. -->
+  <link rel="stylesheet" href="/grim-admin/admin.css" />
+  <!-- Reuse the Bloodline × Abyss interaction already present on the storefront when installed. -->
+  <link rel="stylesheet" href="/grim-liquid.css" />
+  <script src="/grim-liquid.js" defer></script>
   <script src="/grim-admin/notifications.js" defer></script>
+  <title>GRIM / Owner Signals</title>
+  <style>
+    :root { color-scheme:dark; --signal-veil:#f5f2ef; --signal-muted:#acaab4; --signal-border:rgba(233,234,246,.13); }
+    body.grim-notify { position:relative; min-height:100dvh; isolation:isolate; background: #07080c; color:var(--signal-veil); padding:0; overflow-x:hidden; }
+    body.grim-notify::before { content:""; position:fixed; z-index:-2; inset:0; pointer-events:none; background:
+      radial-gradient(ellipse 55% 44% at 9% 14%, rgba(141,23,61,.21), transparent 80%),
+      radial-gradient(ellipse 58% 65% at 94% 73%, rgba(39,76,211,.21), transparent 78%),
+      radial-gradient(ellipse 38% 32% at 57% 96%, rgba(80,23,96,.12), transparent 82%),#07080c; }
+    body.grim-notify::after { content:""; position:fixed; z-index:-1; inset:0; opacity:.21; pointer-events:none; background-image:linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px); background-size:74px 74px; mask-image:linear-gradient(transparent,#000 30%,#000 68%,transparent); }
+    .signal-shell { max-width:1120px; margin:0 auto; padding:28px clamp(20px,5vw,72px) 50px; }
+    .signal-head { display:flex; justify-content:space-between; align-items:center; gap:16px; padding-bottom:27px; border-bottom:1px solid var(--signal-border); }
+    .signal-wordmark { display:flex; align-items:baseline; gap:13px; text-decoration:none; color:var(--signal-veil); }
+    .signal-wordmark strong { font-family:Georgia,'Times New Roman',serif; font-weight:700; font-size:27px; letter-spacing:.12em; }
+    .signal-wordmark span { font-size:10px; font-weight:700; letter-spacing:.27em; color:#a1a8bc; }
+    .signal-head-link { font-size:11px; letter-spacing:.16em; text-decoration:none; color:#c5c8d9; border-bottom:1px solid rgba(197,200,217,.35); padding:7px 0; }
+    .signal-head-link:focus-visible,.signal-action:focus-visible{outline:2px solid #aebeff;outline-offset:3px}
+    .signal-intro { padding:clamp(38px,8vw,90px) 0 38px; max-width:790px; }
+    .signal-kicker { color:#d45a74; font-weight:750; letter-spacing:.28em; font-size:10px; margin-bottom:18px; }
+    .signal-intro h1 { max-width:760px; font-family:Georgia,'Times New Roman',serif; font-weight:400; font-size:clamp(43px,6vw,86px); letter-spacing:-.055em; line-height:1.02; margin:0 0 22px; }
+    .signal-intro h1 em { font-weight:400; font-style:normal; background:linear-gradient(98deg,#f1eef1 10%,#a3b8fc 60%,#e4a9bb); color:transparent; background-clip:text; -webkit-background-clip:text; }
+    .signal-desc { font-size:15px; color:#b6b5c1; line-height:1.85; max-width:590px; margin:0; }
+    .signal-grid { display:grid; grid-template-columns:minmax(0,1.44fr) minmax(250px,.85fr); gap:20px; align-items:stretch; }
+    .signal-panel { padding:clamp(22px,4vw,37px); border:1px solid var(--signal-border); border-radius:22px; background:linear-gradient(132deg,rgba(255,255,255,.08),rgba(13,16,27,.77) 35%,rgba(21,18,35,.70)); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); box-shadow:inset 0 1px rgba(255,255,255,.07),0 20px 70px rgba(0,0,0,.30); }
+    .signal-mini { color:#9b9ab0; font-weight:700; letter-spacing:.24em; font-size:10px; }
+    .signal-panel h2 { font-family:Georgia,'Times New Roman',serif; font-size:clamp(28px,3vw,38px); font-weight:400; letter-spacing:-.025em; margin:12px 0 9px; }
+    .signal-panel p { color:#b7b6c4; line-height:1.75; }
+    .signal-status { min-height:57px; border:1px solid rgba(95,118,197,.25); border-radius:12px; padding:15px 16px; background:rgba(36,53,108,.14); color:#d8dff9 !important; font-size:13px; white-space:pre-wrap; margin:24px 0 0; }
+    .signal-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:26px; }
+    .signal-action { border:1px solid rgba(248,245,251,.21); background:rgba(255,255,255,.045); color:#f3f0f5; padding:13px 17px; min-height:47px; border-radius:9px; font-size:11px; font-weight:750; letter-spacing:.11em; cursor:pointer; transition:background .18s,transform .18s,border-color .18s; }
+    .signal-action:hover:not(:disabled) { background:rgba(255,255,255,.095); border-color:rgba(255,255,255,.38); transform:translateY(-1px); }
+    .signal-action.primary { background:linear-gradient(110deg,#681d3c,#7e214b 45%,#293e80); border:1px solid rgba(209,132,159,.50); box-shadow:0 8px 27px rgba(117,29,60,.18); }
+    .signal-action:disabled { opacity:.45; cursor:not-allowed; }
+    .signal-line { display:flex;align-items:center;gap:12px;color:#d7d8e4;font-size:13px;margin:14px 0; }
+    .signal-line::before {content:"";flex:0 0 6px;width:6px;height:6px;border-radius:50%;background:#9d69ac;box-shadow:0 0 14px rgba(130,105,255,.7);}
+    .signal-muted { font-size:12px; color:#9292a5 !important; }
+    .signal-foot { display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap; margin-top:56px; padding-top:20px; border-top:1px solid var(--signal-border); color:#8a8999; font-size:10px; letter-spacing:.16em; }
+    .signal-foot strong { color:#bbb5c5; font-weight:650; }
+    @media(max-width:730px) {.signal-head{align-items:flex-start}.signal-wordmark span{display:none}.signal-grid{grid-template-columns:1fr}.signal-intro{padding-top:52px}.signal-foot{margin-top:34px}.signal-shell{padding-bottom:24px}}
+    @media(prefers-reduced-motion:reduce){.signal-action{transition:none}}
+  </style>
 </head>
-<body>
-<main>
-  <div class="eyebrow">HOUSE OF GRIM · ADMIN</div>
-  <h1>Order Alerts.</h1>
-  <p>Receive new-order and payment-confirmation notifications without keeping the admin dashboard open.</p>
-  <section class="panel">
-    <strong>Secure device registration</strong>
-    <p class="note">Sign in to GRIM Admin first. On iPhone, add this page to your Home Screen, then open it from the new icon and enable alerts.</p>
-    <div class="row"><button id="enable">Enable notifications</button><button class="secondary" id="test" disabled>Send test</button><button class="secondary" id="disable" disabled>Disable</button></div>
-    <p id="status" role="status" aria-live="polite">Checking device…</p>
-  </section>
-  <p class="note">Alerts may be affected by connectivity, Focus settings, and device permissions. For critical sales, also configure email backup.</p>
-  <div class="row"><a class="button secondary" href="/grim-admin/#overview">Return to Admin</a></div>
-  <footer>TIME IS BORROWED. LEGACY IS EARNED.</footer>
-</main>
+<body class="grim-notify">
+  <div class="signal-shell">
+    <header class="signal-head">
+      <a class="signal-wordmark" href="/grim-admin/#overview"><strong>GRIM</strong><span>OWNER STUDIO</span></a>
+      <a class="signal-head-link" href="/grim-admin/#notifications">BACK TO CONTROL CENTER</a>
+    </header>
+    <main>
+      <section class="signal-intro" aria-label="GRIM private order alerts">
+        <p class="signal-kicker">HOUSE OF GRIM / PRIVATE CONTROL</p>
+        <h1>Every order.<br><em>Within reach.</em></h1>
+        <p class="signal-desc">A private signal when someone enters the House of GRIM. Receive order and verified-payment alerts on your iPhone without keeping the website or Control Center open.</p>
+      </section>
+      <div class="signal-grid">
+        <section class="signal-panel" aria-labelledby="signal-title">
+          <span class="signal-mini">01 / DEVICE ENROLLMENT</span>
+          <h2 id="signal-title">Owner notifications</h2>
+          <p>Enable private alerts from the GRIM Admin icon on your Home Screen. Your existing Control Center login protects enrollment.</p>
+          <div class="signal-actions">
+            <button class="signal-action primary" id="enable" type="button">ENABLE ALERTS</button>
+            <button class="signal-action" id="test" type="button" disabled>SEND TEST</button>
+            <button class="signal-action" id="disable" type="button" disabled>DISABLE</button>
+          </div>
+          <p class="signal-status" id="status" role="status" aria-live="polite">Checking device support…</p>
+        </section>
+        <aside class="signal-panel" aria-label="Activation guide">
+          <span class="signal-mini">02 / QUICK SETUP</span>
+          <h2>Stay connected.</h2>
+          <div class="signal-line">Sign in to GRIM Control Center</div>
+          <div class="signal-line">On iPhone Safari, choose Add to Home Screen</div>
+          <div class="signal-line">Open the installed GRIM Admin icon and enable alerts</div>
+          <div class="signal-line">Send a test before relying on live orders</div>
+          <p class="signal-muted">If you are asked to sign in again, open Control Center from this installed app and return here. Focus modes and connectivity may affect delivery.</p>
+          <a class="signal-head-link" href="/grim-admin/#overview">OPEN ADMIN LOGIN</a>
+        </aside>
+      </div>
+    </main>
+    <footer class="signal-foot"><strong>TIME IS BORROWED. LEGACY IS EARNED.</strong><span>GRIM / OWNER ACCESS ONLY</span></footer>
+  </div>
 </body>
 </html>
