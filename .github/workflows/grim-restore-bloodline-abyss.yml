@@ -1,0 +1,140 @@
+
+name: GRIM | Restore Bloodline Abyss Liquid
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    name: Restore original GRIM flowing touch
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout GRIM
+        uses: actions/checkout@v4
+
+      - name: Restore Bloodline and Abyss
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path("launch/GRIM_STORE_RETAIL_V5_1/public")
+          liquid_js = root / "grim-liquid.js"
+          liquid_css = root / "grim-liquid.css"
+
+          if not liquid_js.is_file() or not liquid_css.is_file():
+              raise SystemExit(
+                  "Original GRIM liquid assets missing. "
+                  "No website pages changed."
+              )
+
+          source = liquid_js.read_text(encoding="utf-8")
+
+          for required in (
+              "grim-abyss-fluid-canvas",
+              "redNext",
+              "blueNext",
+          ):
+              if required not in source:
+                  raise SystemExit(
+                      "Existing liquid JS is not the verified "
+                      "Bloodline/Abyss version. No changes made."
+                  )
+
+          css_tag = (
+              '<link rel="stylesheet" '
+              'href="/grim-liquid.css'
+              '?v=bloodline-abyss-restored">'
+          )
+
+          js_tag = (
+              '<script src="/grim-liquid.js'
+              '?v=bloodline-abyss-restored" defer>'
+              '</script>'
+          )
+
+          files = []
+
+          for page in root.rglob("*.html"):
+              html = page.read_text(encoding="utf-8")
+
+              if (
+                  not re.search(r"</head\s*>", html, re.I)
+                  or not re.search(r"</body\s*>", html, re.I)
+                  or "data-grim-liquid-off" in html
+                  or re.search(
+                      r'<meta[^>]*http-equiv\s*=\s*'
+                      r'["\']?refresh', html, re.I
+                  )
+              ):
+                  continue
+
+              updated = re.sub(
+                  r'<link\b(?=[^>]*href\s*=\s*'
+                  r'["\']/grim-glass-system\.css'
+                  r'(?:\?[^"\']*)?["\'])[^>]*>',
+                  '', html, flags=re.I
+              )
+
+              updated = re.sub(
+                  r'<script\b(?=[^>]*src\s*=\s*'
+                  r'["\']/grim-glass-system\.js'
+                  r'(?:\?[^"\']*)?["\'])[^>]*>'
+                  r'</script>',
+                  '', updated, flags=re.I
+              )
+
+              if not re.search(
+                  r'<link\b[^>]*href\s*=\s*'
+                  r'["\'][^"\']*grim-liquid\.css'
+                  r'(?:\?[^"\']*)?["\']',
+                  updated, re.I
+              ):
+                  updated = re.sub(
+                      r'</head\s*>',
+                      css_tag + '\n</head>',
+                      updated, count=1, flags=re.I
+                  )
+
+              if not re.search(
+                  r'<script\b[^>]*src\s*=\s*'
+                  r'["\'][^"\']*grim-liquid\.js'
+                  r'(?:\?[^"\']*)?["\']',
+                  updated, re.I
+              ):
+                  updated = re.sub(
+                      r'</body\s*>',
+                      js_tag + '\n</body>',
+                      updated, count=1, flags=re.I
+                  )
+
+              if updated != html:
+                  files.append((page, updated))
+
+          for page, content in files:
+              page.write_text(content, encoding="utf-8")
+              print("RESTORED:", page)
+
+          print(f"GRIM restoration: {len(files)} pages updated")
+          PY
+
+      - name: Commit restored design
+        shell: bash
+        run: |
+          git add -u -- launch/GRIM_STORE_RETAIL_V5_1/public
+
+          if git diff --cached --quiet; then
+            echo "GRIM original liquid already active"
+            exit 0
+          fi
+
+          git config user.name "grim-design-bot"
+          git config user.email "actions@users.noreply.github.com"
+
+          git commit -m "Restore GRIM Bloodline Abyss Liquid"
+          git push
