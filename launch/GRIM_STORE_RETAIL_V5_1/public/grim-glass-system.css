@@ -1,0 +1,207 @@
+/* GRIM · HOUSE OF GRIM / LIQUID GLASS SYSTEM / 2026-11
+   A shared, additive material and interaction layer for all GRIM web surfaces.
+   The existing storefront, Order Command, Notify, checkout and admin styles
+   remain authoritative. No logos, layouts, payment UX or brand assets are replaced.
+*/
+html.grim-glass-ready {
+  --grim-glass-obsidian: 11, 11, 15;
+  --grim-glass-veil: 245, 241, 235;
+  --grim-glass-gold: 201, 171, 120;
+  --grim-glass-bloodline: 158, 29, 68;
+  --grim-glass-abyss: 44, 80, 166;
+  --grim-glass-curve: cubic-bezier(.22, 1, .36, 1);
+  --grim-glass-hairline: rgba(var(--grim-glass-gold), .16);
+  color-scheme: dark;
+}
+/* Some legacy storefront screens are ivory: preserve their light-mode controls. */
+html.grim-glass-ready.grim-glass-ivory { color-scheme: light; }
+
+/* Subtle smoked glass. These are overlays, not replacements for page design. */
+.grim-glass-ready :where(
+  .grim-launch-product,
+  .grim-launch-category,
+  .shop .products .card,
+  .products .card,
+  .g6-panel,
+  .g6-wallet,
+  .g6-2fa-card,
+  .grim-search-card,
+  .grim-ops__hero,
+  .grim-ops__metric,
+  .grim-ops__stat,
+  .grim-ops__card,
+  .grim-ops__drawer,
+  .grim-ops__toolbar,
+  .grim-ops__sheet,
+  .grim-ops__filters,
+  .grim-ops__summary,
+  .gn-card,
+  .gn-stage,
+  .gn-panel,
+  .gn-status,
+  .grim-checkout-wizard .choice,
+  .grim-checkout-wizard .method,
+  #panel-orders .card,
+  .admin-app .card,
+  .admin-app .stat-card,
+  .admin-login .login-panel,
+  .delivery-card,
+  .quote-card,
+  .rate-card,
+  .support-card,
+  main .card,
+  .modal > .box,
+  .modal .box,
+  .checkout-box,
+  [data-grim-glass="panel"]
+) {
+  -webkit-backdrop-filter: saturate(1.12) blur(13px);
+  backdrop-filter: saturate(1.12) blur(13px);
+  box-shadow:
+    inset 0 1px 0 rgba(249, 242, 232, .085),
+    0 16px 46px rgba(0, 0, 0, .15);
+}
+
+/* Thin edge lighting is a finish, not a luminous border around everything. */
+.grim-glass-ready :where(
+  .grim-launch-product,
+  .grim-launch-category,
+  .shop .products .card,
+  .products .card,
+  .g6-panel,
+  .g6-wallet,
+  .g6-2fa-card,
+  .grim-search-card,
+  .grim-ops__hero,
+  .grim-ops__drawer,
+  .gn-card,
+  .gn-stage,
+  .gn-panel,
+  .grim-checkout-wizard .method,
+  #panel-orders .card,
+  .admin-app .card,
+  .admin-login .login-panel,
+  .modal > .box,
+  [data-grim-glass="panel"]
+) {
+  outline: 1px solid rgba(var(--grim-glass-gold), .045);
+  outline-offset: -1px;
+}
+
+/* Touch material: retain existing layout and background. */
+.grim-glass-ready :where(
+  button,
+  [role="button"],
+  input[type="submit"],
+  input[type="button"],
+  .cta,
+  .grim-launch-primary,
+  .grim-launch-secondary,
+  .grim-launch-outline,
+  .grim-ops__action,
+  .grim-ops__button,
+  .nav-item,
+  .primary-button,
+  .secondary-button,
+  .gn-button,
+  [data-grim-glass="interactive"]
+):not(:disabled):not([aria-disabled="true"]) {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Glass highlights are added dynamically only to touched/hovered surfaces.
+   They do not intercept pointer events or change button functionality. */
+.grim-glass-ready .grim-glass-interactive {
+  position: relative;
+  --grim-glass-x: 50%;
+  --grim-glass-y: 50%;
+}
+.grim-glass-ready .grim-glass-interactive.grim-glass-pressed {
+  filter: brightness(1.065);
+  box-shadow: 0 0 0 1px rgba(var(--grim-glass-gold), .22),
+    0 8px 30px rgba(var(--grim-glass-bloodline), .065),
+    0 8px 28px rgba(var(--grim-glass-abyss), .065);
+}
+.grim-glass-ready .grim-glass-glint {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  background: radial-gradient(210px circle at var(--grim-glass-x) var(--grim-glass-y),
+    rgba(244, 224, 191, .115),
+    rgba(var(--grim-glass-bloodline), .044) 27%,
+    rgba(var(--grim-glass-abyss), .032) 47%,
+    transparent 75%);
+  pointer-events: none !important;
+  opacity: 0;
+  transition: opacity 240ms var(--grim-glass-curve);
+}
+.grim-glass-ready .grim-glass-interactive.grim-glass-engaged > .grim-glass-glint {
+  opacity: 1;
+}
+.grim-glass-ready .grim-glass-touch-wave {
+  position: absolute;
+  z-index: 3;
+  width: var(--grim-wave-size, 180px);
+  height: var(--grim-wave-size, 180px);
+  left: var(--grim-wave-x, 50%);
+  top: var(--grim-wave-y, 50%);
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(var(--grim-glass-veil), .13) 0%,
+    rgba(var(--grim-glass-gold), .075) 22%,
+    rgba(var(--grim-glass-bloodline), .045) 43%,
+    rgba(var(--grim-glass-abyss), .035) 61%, transparent 73%);
+  transform: translate(-50%, -50%) scale(.05);
+  opacity: 0;
+  animation: grim-glass-touch-wave 680ms var(--grim-glass-curve) both;
+  pointer-events: none !important;
+  mix-blend-mode: screen;
+}
+@keyframes grim-glass-touch-wave {
+  0% { opacity: .65; transform: translate(-50%, -50%) scale(.06); }
+  62% { opacity: .57; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Focus treatment: premium but readable and keyboard-accessible. */
+.grim-glass-ready :where(button,a,input,select,textarea,[role="button"]):focus-visible {
+  outline: 2px solid rgba(var(--grim-glass-gold), .88) !important;
+  outline-offset: 3px;
+}
+.grim-glass-ready :where(
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,select
+):focus-visible {
+  box-shadow:
+    0 0 0 3px rgba(var(--grim-glass-gold), .12),
+    0 8px 32px rgba(var(--grim-glass-abyss), .07);
+}
+
+/* Modal glass without changing the contents or the body stacking context. */
+.grim-glass-ready :where(.modal, [role="dialog"], .grim-ops__drawer) {
+  --grim-glass-hairline: rgba(var(--grim-glass-gold), .19);
+}
+/* Legacy ivory screens should retain their dark text and pale visual hierarchy. */
+.grim-glass-ready.grim-glass-ivory :where(.modal .box, .checkout-box, [data-grim-glass="panel"]) {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.58), 0 18px 52px rgba(35,28,22,.12);
+}
+
+/* Prevent any new glass animation from obscuring purchase forms on small screens. */
+@media (max-width: 680px) {
+  .grim-glass-ready :where(.admin-app .card,.gn-card,.grim-ops__hero,.grim-checkout-wizard .method) {
+    -webkit-backdrop-filter: blur(9px) saturate(1.05);
+    backdrop-filter: blur(9px) saturate(1.05);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .grim-glass-ready :where(.admin-app .card,.gn-card,.grim-ops__hero,.modal .box) {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .grim-glass-ready .grim-glass-glint,
+  .grim-glass-ready .grim-glass-touch-wave { display:none !important; animation:none !important; transition:none !important; }
+}
