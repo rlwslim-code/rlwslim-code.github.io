@@ -1,0 +1,11 @@
+{
+  "name": "GRIM Admin Order Alerts",
+  "short_name": "GRIM Admin",
+  "description": "Secure order and payment alerts for GRIM administrators.",
+  "start_url": "/grim-admin/notifications.html",
+  "scope": "/grim-admin/",
+  "display": "standalone",
+  "background_color": "#0b0b0d",
+  "theme_color": "#0b0b0d",
+  "icons": [{ "src": "/grim-admin/notify-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

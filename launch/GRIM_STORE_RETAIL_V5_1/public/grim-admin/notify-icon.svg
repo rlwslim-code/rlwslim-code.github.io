@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="GRIM admin notification bell">
+  <rect width="192" height="192" rx="38" fill="#0b0b0d"/>
+  <path d="M96 42c-26 0-43 20-43 47v19c0 13-6 22-12 29h110c-6-7-12-16-12-29V89c0-27-17-47-43-47Z" fill="none" stroke="#e4ded2" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M83 153c3 13 23 13 26 0" fill="none" stroke="#e4ded2" stroke-width="9" stroke-linecap="round"/>
+</svg>
