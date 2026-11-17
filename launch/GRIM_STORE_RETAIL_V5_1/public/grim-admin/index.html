@@ -19,6 +19,7 @@
     rel="stylesheet"
     href="/grim-admin/admin.css"
   />
+  <link rel="stylesheet" href="/grim-admin/grim-addons/order-command.css" />
 </head>
 
 <body>
@@ -442,6 +443,33 @@
         class="panel"
       >
 
+        <div class="grim-ops" id="grimOrderCommand">
+          <div class="grim-ops__hero">
+            <div class="grim-ops__top">
+              <div>
+                <p class="grim-ops__eyebrow">GRIM / OWNER STUDIO · OPERATIONS</p>
+                <h3>Order Command.</h3>
+                <p class="grim-ops__subtitle">Every order, accounted for. A composed view of payment, fulfilment and customer details — without changing the checkout system.</p>
+              </div>
+              <span class="grim-ops__sync" id="grimOpsSync" aria-live="polite">Waiting for first sync</span>
+            </div>
+            <div class="grim-ops__grid" aria-label="Order summary from current dashboard snapshot">
+              <div class="grim-ops__metric grim-ops__metric--gold"><span>Recorded paid value</span><strong id="grimOpsRevenue">₦0</strong></div>
+              <div class="grim-ops__metric"><span>Paid orders</span><strong id="grimOpsPaid">0</strong></div>
+              <div class="grim-ops__metric"><span>Awaiting payment</span><strong id="grimOpsUnpaid">0</strong></div>
+              <div class="grim-ops__metric"><span>Fulfilment attention</span><strong id="grimOpsAttention">0</strong></div>
+            </div>
+            <p class="grim-ops__foot">Figures represent up to 300 recently loaded orders, not lifetime sales or accounting profit. Refunded and cancelled states are excluded from paid value.</p>
+          </div>
+          <div class="grim-ops__bar">
+            <div class="grim-ops__search"><label for="grimOpsSearch">Find an order</label><input id="grimOpsSearch" type="search" placeholder="Order ID, customer, phone or email" autocomplete="off"></div>
+            <button id="grimOpsExport" type="button" class="grim-ops__button">Export filtered CSV</button>
+            <a class="grim-ops__button" href="/grim-admin/shipping.html" style="display:inline-flex;align-items:center;text-decoration:none">Shipping desk</a>
+          </div>
+          <div class="grim-ops__secondary"><span id="grimOpsShown" aria-live="polite">Waiting for orders…</span><span id="grimOpsCatalog" class="grim-ops__pill">Inventory data loading</span></div>
+          <p id="grimOpsEmpty" class="grim-ops__empty" hidden>No orders match your search. Try another reference or customer name.</p>
+        </div>
+
         <div class="card">
 
           <div class="card-heading">
@@ -491,6 +519,7 @@
                   <th>Payment</th>
                   <th>Delivery</th>
                   <th>Date</th>
+                  <th>Details</th>
                 </tr>
               </thead>
 
@@ -802,6 +831,15 @@
   </div>
 
 
+  <div class="grim-ops__drawer" id="grimOpsDrawer" hidden role="dialog" aria-modal="true" aria-label="Order details">
+    <aside class="grim-ops__sheet">
+      <div class="grim-ops__sheet-head"><div><p class="grim-ops__eyebrow">GRIM / ORDER INTELLIGENCE</p><h3 id="grimOpsOrderTitle">Order details</h3></div><button id="grimOpsClose" type="button" class="grim-ops__close" aria-label="Close order details">✕</button></div>
+      <dl class="grim-ops__detail" id="grimOpsDetail"></dl>
+      <div class="grim-ops__sheet-actions"><button class="grim-ops__button" type="button" id="grimOpsCopyId">COPY ORDER ID</button><a class="grim-ops__button" href="/grim-admin/shipping.html" style="text-decoration:none">SHIPPING DESK</a></div>
+      <p class="grim-ops__note">Read-only order details. Payment and fulfilment updates remain controlled by the existing verified backend.</p>
+    </aside>
+  </div>
+
   <div
     id="adminToast"
     class="toast hidden"
@@ -812,5 +850,6 @@
   <script src="/grim-admin/admin.js"></script>
   <script src="/grim-admin/grim-addons/product-manager.js"></script>
   <script src="/grim-admin/grim-addons/site-controls.js"></script>
+  <script src="/grim-admin/grim-addons/order-command.js"></script>
 </body>
 </html>

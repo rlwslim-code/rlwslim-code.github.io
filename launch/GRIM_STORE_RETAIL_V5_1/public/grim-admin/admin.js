@@ -468,6 +468,8 @@
   ========================================================= */
 
   function showLogin() {
+    const orderDrawer = document.getElementById("grimOpsDrawer");
+    if (orderDrawer) orderDrawer.hidden = true;
     state.authenticated =
       false;
 
@@ -828,7 +830,13 @@
 
 
       renderEverything();
-
+      window.dispatchEvent(new CustomEvent("grim:admin:snapshot", {
+        detail: {
+          orders: state.orders,
+          products: state.products,
+          generatedAt: snapshot?.generatedAt
+        }
+      }));
 
       detectNewNotifications();
 
@@ -1391,7 +1399,7 @@
       body.innerHTML =
         `
           <tr>
-            <td colspan="6">
+            <td colspan="7">
               No orders found.
             </td>
           </tr>
@@ -1404,7 +1412,7 @@
           .map(order => {
 
             return `
-              <tr>
+              <tr data-grim-order-id="${escapeHtml(order.id || order.order_id || "")}">
 
                 <td>
                   #${escapeHtml(
@@ -1472,6 +1480,7 @@
                     )
                   )}
                 </td>
+                <td><button type="button" class="grim-ops__view" data-grim-open-order="${escapeHtml(order.id || order.order_id || "")}">View order</button></td>
 
               </tr>
             `;
@@ -1481,6 +1490,7 @@
 
 
     renderRecentOrders();
+    window.dispatchEvent(new CustomEvent("grim:admin:orders-rendered"));
   }
 
 
