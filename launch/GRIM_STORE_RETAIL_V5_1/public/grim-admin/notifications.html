@@ -2,98 +2,202 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="robots" content="noindex,nofollow" />
-  <meta name="theme-color" content="#07080c" />
+  <meta name="theme-color" content="#09090b" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="GRIM Admin" />
   <link rel="manifest" href="/grim-admin/notifications.webmanifest" />
-  <!-- Existing GRIM Owner Studio visual tokens. -->
   <link rel="stylesheet" href="/grim-admin/admin.css" />
-  <!-- Reuse the Bloodline × Abyss interaction already present on the storefront when installed. -->
-  <link rel="stylesheet" href="/grim-liquid.css" />
-  <script src="/grim-liquid.js" defer></script>
+  <!-- Retain the existing GRIM admin signed-session bridge and notification logic. -->
   <script src="/grim-admin/grim-addons/admin-session.js" defer></script>
   <script src="/grim-admin/notifications.js" defer></script>
   <title>GRIM / Owner Signals</title>
   <style>
-    :root { color-scheme:dark; --signal-veil:#f5f2ef; --signal-muted:#acaab4; --signal-border:rgba(233,234,246,.13); }
-    body.grim-notify { position:relative; min-height:100dvh; isolation:isolate; background: #07080c; color:var(--signal-veil); padding:0; overflow-x:hidden; }
-    body.grim-notify::before { content:""; position:fixed; z-index:-2; inset:0; pointer-events:none; background:
-      radial-gradient(ellipse 55% 44% at 9% 14%, rgba(141,23,61,.21), transparent 80%),
-      radial-gradient(ellipse 58% 65% at 94% 73%, rgba(39,76,211,.21), transparent 78%),
-      radial-gradient(ellipse 38% 32% at 57% 96%, rgba(80,23,96,.12), transparent 82%),#07080c; }
-    body.grim-notify::after { content:""; position:fixed; z-index:-1; inset:0; opacity:.21; pointer-events:none; background-image:linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px); background-size:74px 74px; mask-image:linear-gradient(transparent,#000 30%,#000 68%,transparent); }
-    .signal-shell { max-width:1120px; margin:0 auto; padding:28px clamp(20px,5vw,72px) 50px; }
-    .signal-head { display:flex; justify-content:space-between; align-items:center; gap:16px; padding-bottom:27px; border-bottom:1px solid var(--signal-border); }
-    .signal-wordmark { display:flex; align-items:baseline; gap:13px; text-decoration:none; color:var(--signal-veil); }
-    .signal-wordmark strong { font-family:Georgia,'Times New Roman',serif; font-weight:700; font-size:27px; letter-spacing:.12em; }
-    .signal-wordmark span { font-size:10px; font-weight:700; letter-spacing:.27em; color:#a1a8bc; }
-    .signal-head-link { font-size:11px; letter-spacing:.16em; text-decoration:none; color:#c5c8d9; border-bottom:1px solid rgba(197,200,217,.35); padding:7px 0; }
-    .signal-head-link:focus-visible,.signal-action:focus-visible{outline:2px solid #aebeff;outline-offset:3px}
-    .signal-intro { padding:clamp(38px,8vw,90px) 0 38px; max-width:790px; }
-    .signal-kicker { color:#d45a74; font-weight:750; letter-spacing:.28em; font-size:10px; margin-bottom:18px; }
-    .signal-intro h1 { max-width:760px; font-family:Georgia,'Times New Roman',serif; font-weight:400; font-size:clamp(43px,6vw,86px); letter-spacing:-.055em; line-height:1.02; margin:0 0 22px; }
-    .signal-intro h1 em { font-weight:400; font-style:normal; background:linear-gradient(98deg,#f1eef1 10%,#a3b8fc 60%,#e4a9bb); color:transparent; background-clip:text; -webkit-background-clip:text; }
-    .signal-desc { font-size:15px; color:#b6b5c1; line-height:1.85; max-width:590px; margin:0; }
-    .signal-grid { display:grid; grid-template-columns:minmax(0,1.44fr) minmax(250px,.85fr); gap:20px; align-items:stretch; }
-    .signal-panel { padding:clamp(22px,4vw,37px); border:1px solid var(--signal-border); border-radius:22px; background:linear-gradient(132deg,rgba(255,255,255,.08),rgba(13,16,27,.77) 35%,rgba(21,18,35,.70)); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); box-shadow:inset 0 1px rgba(255,255,255,.07),0 20px 70px rgba(0,0,0,.30); }
-    .signal-mini { color:#9b9ab0; font-weight:700; letter-spacing:.24em; font-size:10px; }
-    .signal-panel h2 { font-family:Georgia,'Times New Roman',serif; font-size:clamp(28px,3vw,38px); font-weight:400; letter-spacing:-.025em; margin:12px 0 9px; }
-    .signal-panel p { color:#b7b6c4; line-height:1.75; }
-    .signal-status { min-height:57px; border:1px solid rgba(95,118,197,.25); border-radius:12px; padding:15px 16px; background:rgba(36,53,108,.14); color:#d8dff9 !important; font-size:13px; white-space:pre-wrap; margin:24px 0 0; }
-    .signal-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:26px; }
-    .signal-action { border:1px solid rgba(248,245,251,.21); background:rgba(255,255,255,.045); color:#f3f0f5; padding:13px 17px; min-height:47px; border-radius:9px; font-size:11px; font-weight:750; letter-spacing:.11em; cursor:pointer; transition:background .18s,transform .18s,border-color .18s; }
-    .signal-action:hover:not(:disabled) { background:rgba(255,255,255,.095); border-color:rgba(255,255,255,.38); transform:translateY(-1px); }
-    .signal-action.primary { background:linear-gradient(110deg,#681d3c,#7e214b 45%,#293e80); border:1px solid rgba(209,132,159,.50); box-shadow:0 8px 27px rgba(117,29,60,.18); }
-    .signal-action:disabled { opacity:.45; cursor:not-allowed; }
-    .signal-line { display:flex;align-items:center;gap:12px;color:#d7d8e4;font-size:13px;margin:14px 0; }
-    .signal-line::before {content:"";flex:0 0 6px;width:6px;height:6px;border-radius:50%;background:#9d69ac;box-shadow:0 0 14px rgba(130,105,255,.7);}
-    .signal-muted { font-size:12px; color:#9292a5 !important; }
-    .signal-foot { display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap; margin-top:56px; padding-top:20px; border-top:1px solid var(--signal-border); color:#8a8999; font-size:10px; letter-spacing:.16em; }
-    .signal-foot strong { color:#bbb5c5; font-weight:650; }
-    @media(max-width:730px) {.signal-head{align-items:flex-start}.signal-wordmark span{display:none}.signal-grid{grid-template-columns:1fr}.signal-intro{padding-top:52px}.signal-foot{margin-top:34px}.signal-shell{padding-bottom:24px}}
-    @media(prefers-reduced-motion:reduce){.signal-action{transition:none}}
+    :root {
+      color-scheme: dark;
+      --gn-obsidian: #08080b;
+      --gn-veil: #f4f0e8;
+      --gn-secondary: #b9b3ae;
+      --gn-quiet: #928f96;
+      --gn-gold: #ccb68f;
+      --gn-hairline: rgba(219, 211, 203, .14);
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { min-height: 100%; background:var(--gn-obsidian); }
+    body.grim-notify {
+      margin: 0;
+      min-height: 100dvh;
+      background:
+        radial-gradient(ellipse 58% 36% at 5% 8%, rgba(112, 25, 48, .115), transparent 75%),
+        radial-gradient(ellipse 55% 42% at 100% 58%, rgba(37, 54, 113, .095), transparent 80%),
+        linear-gradient(180deg, #08080a 0%, #0c0b0f 58%, #08080b 100%);
+      color: var(--gn-veil);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Scope every style to this page. The storefront's liquid effect is intentionally NOT loaded here. */
+    .gn-shell { width:min(1120px,100%); margin-inline:auto; padding: 0 clamp(20px,5vw,60px) 35px; }
+    .gn-header {
+      display:flex; align-items:center; justify-content:space-between; gap:16px;
+      padding:25px 0 24px; border-bottom: 1px solid var(--gn-hairline);
+    }
+    .gn-brand { display:flex; gap:13px; align-items:center; text-decoration:none; color:inherit; min-width:0; }
+    .gn-brand-name {
+      font:normal 28px/1 Georgia, 'Times New Roman', serif;
+      letter-spacing:.18em; color:#f4f1e9;
+    }
+    .gn-brand-divider { height:21px; width:1px; background:rgba(205,188,159,.42); }
+    .gn-brand-sub { font-size:9px; font-weight:700; letter-spacing:.27em; color:#beb3a4; white-space:nowrap; }
+    .gn-return {
+      font-size:10px; font-weight:700; letter-spacing:.15em; text-transform:uppercase;
+      color:#c2b9b0; text-decoration:none; border-bottom: 1px solid rgba(201,187,168,.3); padding-bottom:6px;
+      transition:color .18s ease,border-color .18s ease;
+    }
+    .gn-return:hover { color:#fff; border-color:#cbb58d; }
+    .gn-hero { position:relative; padding: clamp(48px,7vw,90px) 0 clamp(36px,5vw,62px); }
+    .gn-hero::after {
+      content:'01 / PRIVATE CHANNEL'; position:absolute; top:clamp(53px,7vw,97px); right:0;
+      color:#807974; font-size:10px; letter-spacing:.2em;
+    }
+    .gn-eyebrow { margin:0 0 22px; color:var(--gn-gold); font-size:10px; font-weight:700; letter-spacing:.26em; }
+    .gn-eyebrow::before { content:''; display:inline-block; width:25px; height:1px; background:var(--gn-gold); vertical-align:middle; margin-right:14px; opacity:.8; }
+    .gn-hero h1 {
+      font:normal clamp(52px,7.3vw,92px)/1.01 Georgia,'Times New Roman',serif;
+      letter-spacing:-.055em; margin:0 0 24px; max-width:800px; color:var(--gn-veil);
+    }
+    .gn-hero h1 em {
+      font-style:normal;
+      background:linear-gradient(105deg, #e8e0d3 0%, #d1b995 54%, #a9acbd 100%);
+      -webkit-background-clip:text; background-clip:text; color:transparent;
+    }
+    .gn-lede { max-width:570px; color:#b8b3b7; font-size:clamp(14px,1.7vw,16px); line-height:1.9; margin:0; }
+    .gn-metadata { display:flex; flex-wrap:wrap; gap:10px 27px; margin-top:30px; color:#a19ca3; font-size:10px; letter-spacing:.17em; font-weight:650; }
+    .gn-metadata span::before { content:'—'; padding-right:9px; color:#a8897d; }
+    .gn-layout { display:grid; grid-template-columns:minmax(0,1.28fr) minmax(0,.82fr); align-items:stretch; gap:16px; }
+    .gn-panel {
+      position:relative; overflow:hidden; min-width:0;
+      border:1px solid var(--gn-hairline); border-radius:18px;
+      background:linear-gradient(149deg,rgba(31,28,31,.94),rgba(14,14,18,.96) 52%,rgba(21,19,24,.96));
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 20px 60px rgba(0,0,0,.22);
+      backdrop-filter:blur(18px) saturate(112%); -webkit-backdrop-filter:blur(18px) saturate(112%);
+    }
+    .gn-panel::before { content:''; position:absolute; top:0; left:0; right:0; height:2px;
+      background:linear-gradient(90deg,transparent 0%,rgba(159,46,77,.66) 20%,rgba(196,156,117,.6) 51%,rgba(69,90,167,.55) 86%,transparent 100%);
+      pointer-events:none; }
+    .gn-panel-main { padding:clamp(26px,4.3vw,46px); }
+    .gn-panel-side { padding:clamp(25px,3.3vw,36px); background:linear-gradient(160deg,rgba(26,25,28,.96),rgba(11,12,17,.95)); }
+    .gn-section-label { display:flex; justify-content:space-between; align-items:center; gap:12px;
+      color:#b8a792; font-size:10px; font-weight:750; letter-spacing:.24em; margin-bottom:24px; }
+    .gn-section-label::after { content:''; width:26px; height:1px; background:rgba(192,163,124,.6); }
+    .gn-panel h2 { font:normal clamp(29px,3.4vw,40px)/1.15 Georgia,'Times New Roman',serif; letter-spacing:-.035em; color:#f2ede8; margin:0 0 15px; }
+    .gn-panel-intro { color:var(--gn-secondary); max-width:530px; line-height:1.85; margin:0 0 28px; font-size:14px; }
+    .gn-actions { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 26px; }
+    .gn-action {
+      appearance:none; border:1px solid rgba(234,222,209,.18); background:rgba(255,255,255,.025);
+      border-radius:9px; color:#e9e4dc; font:700 10px/1.2 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      letter-spacing:.14em; text-transform:uppercase; padding:17px 20px; min-height:50px; cursor:pointer;
+      transition:border-color .18s, background .18s, transform .18s;
+    }
+    .gn-action:hover:not(:disabled) { border-color:rgba(220,192,151,.55); background:rgba(255,255,255,.07); transform:translateY(-1px); }
+    .gn-action-primary {
+      color:#fdf8f2;
+      background:linear-gradient(118deg, #682638, #852e49 52%, #383c67);
+      border-color:rgba(200,128,134,.44); box-shadow:inset 0 1px rgba(255,255,255,.1),0 7px 28px rgba(80,23,45,.15);
+    }
+    .gn-action-primary:hover:not(:disabled) { background:linear-gradient(118deg,#74283e,#943653 52%,#414771); }
+    .gn-action:disabled { opacity:.40; cursor:not-allowed; }
+    .gn-action:focus-visible,.gn-return:focus-visible,.gn-brand:focus-visible { outline:2px solid #dbbe8d; outline-offset:4px; }
+    .gn-status-wrap { border-top:1px solid var(--gn-hairline); padding-top:23px; }
+    .gn-status-heading { display:flex; align-items:center; gap:9px; font-size:10px; color:#af9e8e; letter-spacing:.2em; font-weight:750; margin-bottom:12px; }
+    .gn-status-heading::before { content:''; display:block; height:6px; width:6px; border-radius:50%; border:1px solid #d3b17b; background:#846e52; }
+    .gn-status { border:1px solid rgba(202,190,170,.16); background:rgba(8,9,13,.54); border-radius:10px; min-height:65px; padding:19px 18px;
+      color:#dfd9d3; white-space:pre-wrap; overflow-wrap:anywhere; font:500 13px/1.7 ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; margin:0; }
+    .gn-steps { margin:22px 0 0; padding:0; list-style:none; }
+    .gn-step { display:grid; grid-template-columns:27px 1fr; gap:13px; padding:17px 0; border-bottom:1px solid rgba(228,218,202,.10); color:#bcb6b5; font-size:13px; line-height:1.6; }
+    .gn-step:first-child { padding-top:0; }
+    .gn-step:last-child { border-bottom:none; }
+    .gn-step-number { color:#c3aa86; font-size:11px; letter-spacing:.1em; font-weight:700; }
+    .gn-help { margin:23px 0 18px; color:#98939c; font-size:12px; line-height:1.75; }
+    .gn-side-link { display:inline-flex; padding:8px 0 6px; font-size:10px; text-decoration:none; border-bottom:1px solid rgba(205,174,139,.4); color:#e4d1b3; letter-spacing:.16em; font-weight:700; }
+    .gn-side-link:hover { color:white; border-color:white; }
+    .gn-footer { border-top:1px solid var(--gn-hairline); margin-top:48px; padding-top:25px; display:flex; justify-content:space-between; gap:15px; flex-wrap:wrap; font-size:9px; letter-spacing:.2em; color:#807d82; }
+    .gn-footer strong { font-weight:550; color:#bdb0a2; }
+    @media (max-width:750px) {
+      .gn-shell { padding-inline:clamp(18px,5.2vw,28px); }
+      .gn-header { padding-top:22px; }
+      .gn-brand-name { font-size:24px; }
+      .gn-brand-sub { display:none; }
+      .gn-brand-divider { display:none; }
+      .gn-return { font-size:9px; letter-spacing:.07em; }
+      .gn-hero { padding:56px 0 33px; }
+      .gn-hero::after { display:none; }
+      .gn-hero h1 { font-size:clamp(45px,10.8vw,64px); }
+      .gn-metadata { margin-top:23px; gap:7px 14px; }
+      .gn-layout { grid-template-columns:1fr; gap:14px; }
+      .gn-panel-main,.gn-panel-side { padding:26px 24px; }
+      .gn-section-label { margin-bottom:21px; }
+      .gn-footer { margin-top:34px; }
+    }
+    @media (max-width:375px) {
+      .gn-shell { padding-inline:17px; }
+      .gn-hero h1 { font-size:43px; }
+      .gn-action { padding:14px 15px; }
+    }
+    @media (prefers-reduced-motion:reduce) {
+      .gn-action,.gn-return { transition:none; }
+    }
   </style>
 </head>
 <body class="grim-notify">
-  <div class="signal-shell">
-    <header class="signal-head">
-      <a class="signal-wordmark" href="/grim-admin/#overview"><strong>GRIM</strong><span>OWNER STUDIO</span></a>
-      <a class="signal-head-link" href="/grim-admin/#notifications">BACK TO CONTROL CENTER</a>
+  <div class="gn-shell">
+    <header class="gn-header">
+      <a class="gn-brand" href="/grim-admin/#overview" aria-label="GRIM Control Center">
+        <span class="gn-brand-name">GRIM</span><span class="gn-brand-divider" aria-hidden="true"></span><span class="gn-brand-sub">OWNER STUDIO</span>
+      </a>
+      <a class="gn-return" href="/grim-admin/#notifications">CONTROL CENTER</a>
     </header>
     <main>
-      <section class="signal-intro" aria-label="GRIM private order alerts">
-        <p class="signal-kicker">HOUSE OF GRIM / PRIVATE CONTROL</p>
+      <section class="gn-hero" aria-label="GRIM private order alerts">
+        <p class="gn-eyebrow">HOUSE OF GRIM / OWNER SIGNALS</p>
         <h1>Every order.<br><em>Within reach.</em></h1>
-        <p class="signal-desc">A private signal when someone enters the House of GRIM. Receive order and verified-payment alerts on your iPhone without keeping the website or Control Center open.</p>
+        <p class="gn-lede">Private alerts for new orders and verified payments. Stay connected to the House without keeping Control Center open.</p>
+        <div class="gn-metadata" aria-label="Alert categories"><span>ORDERS</span><span>PAYMENTS</span><span>PRIVATE ACCESS</span></div>
       </section>
-      <div class="signal-grid">
-        <section class="signal-panel" aria-labelledby="signal-title">
-          <span class="signal-mini">01 / DEVICE ENROLLMENT</span>
-          <h2 id="signal-title">Owner notifications</h2>
-          <p>Enable private alerts from the GRIM Admin icon on your Home Screen. Your existing Control Center login protects enrollment.</p>
-          <div class="signal-actions">
-            <button class="signal-action primary" id="enable" type="button">ENABLE ALERTS</button>
-            <button class="signal-action" id="test" type="button" disabled>SEND TEST</button>
-            <button class="signal-action" id="disable" type="button" disabled>DISABLE</button>
+      <div class="gn-layout">
+        <section class="gn-panel gn-panel-main" aria-labelledby="gn-enroll-heading">
+          <div class="gn-section-label">01 / DEVICE ENROLLMENT</div>
+          <h2 id="gn-enroll-heading">Owner notifications</h2>
+          <p class="gn-panel-intro">Connect your iPhone to receive GRIM alerts. Your existing Control Center sign-in protects device enrollment.</p>
+          <div class="gn-actions">
+            <button id="enable" class="gn-action gn-action-primary" type="button">ENABLE ALERTS</button>
+            <button id="test" class="gn-action" type="button" disabled>SEND TEST</button>
+            <button id="disable" class="gn-action" type="button" disabled>DISABLE</button>
           </div>
-          <p class="signal-status" id="status" role="status" aria-live="polite">Checking device support…</p>
+          <div class="gn-status-wrap">
+            <div class="gn-status-heading">DEVICE STATUS</div>
+            <p class="gn-status" id="status" role="status" aria-live="polite">Checking device support…</p>
+          </div>
         </section>
-        <aside class="signal-panel" aria-label="Activation guide">
-          <span class="signal-mini">02 / QUICK SETUP</span>
+        <aside class="gn-panel gn-panel-side" aria-label="Activation guide">
+          <div class="gn-section-label">02 / QUICK SETUP</div>
           <h2>Stay connected.</h2>
-          <div class="signal-line">Sign in to GRIM Control Center</div>
-          <div class="signal-line">On iPhone Safari, choose Add to Home Screen</div>
-          <div class="signal-line">Open the installed GRIM Admin icon and enable alerts</div>
-          <div class="signal-line">Send a test before relying on live orders</div>
-          <p class="signal-muted">If you are asked to sign in again, open Control Center from this installed app and return here. Focus modes and connectivity may affect delivery.</p>
-          <a class="signal-head-link" href="/grim-admin/#overview">OPEN ADMIN LOGIN</a>
+          <ol class="gn-steps">
+            <li class="gn-step"><span class="gn-step-number">01</span><span>Sign in to GRIM Control Center.</span></li>
+            <li class="gn-step"><span class="gn-step-number">02</span><span>In iPhone Safari, choose <strong>Add to Home Screen</strong>.</span></li>
+            <li class="gn-step"><span class="gn-step-number">03</span><span>Open the installed GRIM Admin icon and enable alerts.</span></li>
+            <li class="gn-step"><span class="gn-step-number">04</span><span>Send a test before relying on live order notifications.</span></li>
+          </ol>
+          <p class="gn-help">If asked to sign in again, open Control Center from the installed app and return here. Focus modes and connectivity may affect delivery.</p>
+          <a class="gn-side-link" href="/grim-admin/#overview">OPEN ADMIN LOGIN</a>
         </aside>
       </div>
     </main>
-    <footer class="signal-foot"><strong>TIME IS BORROWED. LEGACY IS EARNED.</strong><span>GRIM / OWNER ACCESS ONLY</span></footer>
+    <footer class="gn-footer"><strong>TIME IS BORROWED. LEGACY IS EARNED.</strong><span>GRIM / PRIVATE OWNER ACCESS</span></footer>
   </div>
 </body>
 </html>
