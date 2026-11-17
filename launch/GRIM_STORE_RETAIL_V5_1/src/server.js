@@ -1,6 +1,8 @@
 import express from "express";
 import { createRequire } from "node:module";
 const checkoutRequire = createRequire(import.meta.url);
+// GRIM Owner Alerts: re-use the existing ES-module-compatible CommonJS loader.
+const { createAdminRouter: createGrimNotifyRouter, dispatchHandler: grimNotifyDispatch } = checkoutRequire('./grim-notify/routes.cjs');
 const { createRoutes: createCheckout2Routes } = checkoutRequire('./checkout2/routes.cjs');
 const { previewConfig } = checkoutRequire('./checkout2/preview-config.cjs');
 const { createRuntime } = checkoutRequire('./checkout2/runtime.cjs');
@@ -720,6 +722,11 @@ installGrimV8(app, {
 });
 
 installGrimPush(app, { supabase: grimSupabase });
+
+// Dedicated owner-only order alerts. No changes to payment, wallet, or customer push.
+// Installed after sessions/admin middleware and before static/404 routes.
+app.use('/api/admin/grim-notify', createGrimNotifyRouter());
+app.all('/api/grim-notify/dispatch', grimNotifyDispatch);
 
 app.post("/api/orders", async (req, res) => {
   const {
