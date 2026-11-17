@@ -1,0 +1,45 @@
+
+name: GRIM | Activate Liquid Glass Everywhere
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  activate:
+    name: Apply additive GRIM design layer
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout current GRIM version
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Prepare Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate assets and installer
+        run: |
+          node --check launch/GRIM_STORE_RETAIL_V5_1/public/grim-glass-system.js
+          node --check launch/GRIM_STORE_RETAIL_V5_1/scripts/apply-grim-glass.mjs
+          node launch/GRIM_STORE_RETAIL_V5_1/scripts/apply-grim-glass.mjs --dry-run
+
+      - name: Add Liquid Glass
+        run: node launch/GRIM_STORE_RETAIL_V5_1/scripts/apply-grim-glass.mjs
+
+      - name: Commit updated pages
+        run: |
+          git add -u -- launch/GRIM_STORE_RETAIL_V5_1/public
+          if git diff --cached --quiet; then
+            echo "Liquid Glass already active"
+            exit 0
+          fi
+          git config user.name "grim-design-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git commit -m "GRIM: activate shared liquid glass"
+          git push origin "HEAD:${{ github.ref_name }}"
